@@ -3,46 +3,28 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Apartment Management · Maintenance</title>
+  <title>Maintenance · Green Valley Apartments</title>
   <link rel="stylesheet" href="/css/main.css">
-  <script type="module">
-    import { initViewingAs } from '/js/viewing-as.js';
-
-    const who = document.getElementById('who');
-    const ROLE_TEXT = {
-      admin: 'Admin — can review, prioritise and assign every request.',
-      staff: 'Staff — works on assigned requests.',
-      resident: 'Resident — reports problems and follows their own requests.',
-    };
-
-    initViewingAs(document.getElementById('viewing-as'), (user) => {
-      if (!user) {
-        who.textContent = 'Choose a user from the "Viewing as" menu to start.';
-        return;
-      }
-      const perms = user.permissions.length ? ` Extra permissions: ${user.permissions.join(', ')}.` : '';
-      who.textContent = `You are viewing as ${user.fullName}. ${ROLE_TEXT[user.role]}${perms}`;
-    }).catch((err) => {
-      who.textContent = `Could not load users: ${err.message}`;
-    });
-  </script>
+  <script src="/vendor/motion.js" defer></script>
+  <script type="module" src="/js/pages/home.js"></script>
 </head>
 <body>
-  <header class="topbar">
-    <span class="brand">Green Valley Apartments</span>
-    <label class="viewing-as">
-      <span>Viewing as</span>
-      <select id="viewing-as"><option value="">Loading…</option></select>
-    </label>
-  </header>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header" id="site-header"></header>
 
-  <main class="page">
-    <h1>Maintenance</h1>
-    <p class="notice" role="note">
+  <main class="page" id="main" tabindex="-1">
+    <div class="page-head">
+      <h1>Maintenance</h1>
+    </div>
+
+    <p class="callout callout--warn" role="note">
       Development mode: there is no login yet. Pick a demo user in <strong>Viewing as</strong>
       to act as a resident, staff member or admin.
     </p>
-    <p id="who" aria-live="polite"></p>
+
+    <section class="card" id="who" aria-live="polite">
+      <p class="muted">Loading…</p>
+    </section>
   </main>
 </body>
 </html>

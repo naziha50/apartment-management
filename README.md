@@ -9,13 +9,38 @@ building admin and staff review, assign, track and resolve them (SRS v1.3, §4.3
 
 ## Status
 
-🚧 Work in progress — Sprint 0 (project setup).
+🚧 Work in progress — Sprint 1 (report a problem).
 
+**Sprint 0 – Setup** ✅
 - [x] Step 1: Node.js project + Express server with a health check
 - [x] Step 2: configuration (`.env`) + PostgreSQL connection
 - [x] Step 3: database migrations
 - [x] Step 4: `users` and `units` tables with demo data
 - [x] Step 5: "Viewing as" user switcher (development stand-in for login)
+
+**Sprint 1 – Report a problem**
+- [x] Step 6: base page layout, stylesheet and security headers
+- [ ] Step 7: maintenance request tables
+- [ ] Step 8: submit-request API (FR-16, FR-17)
+- [ ] Step 9: "Report a problem" page
+- [ ] Step 10: my requests list and request detail (FR-21)
+- [ ] Step 11: photo attachments (BR-19)
+
+## Frontend conventions
+
+- Plain HTML, CSS and JavaScript modules — no build step.
+- One stylesheet, `public/css/main.css`, with colour tokens and reusable components
+  (buttons, cards, forms, status badges, tables that turn into cards on phones).
+- Every page has the same frame from `public/js/layout.js`: top bar, "Viewing as" menu and
+  a navigation bar that shows only the links for the current role.
+- Insert user data only with `el()` / `textContent` from `public/js/dom.js`, never `innerHTML` (NFR-05).
+- No inline `<script>` blocks or `style=""` attributes: the security policy only allows
+  scripts and styles from this server.
+- Animations: [Motion](https://motion.dev) for entrance effects and
+  [anime.js](https://animejs.com) for number count-ups, both served from `node_modules`
+  at `/vendor/…`. They are skipped when the user's system asks for reduced motion.
+- Usability targets: works at 360 px wide without sideways scrolling (NFR-10), contrast
+  ≥ 4.5:1, visible keyboard focus and a skip link (NFR-12), touch targets ≥ 44 px.
 
 ## Who am I? ("Viewing as") — no login yet
 
@@ -106,13 +131,18 @@ server/
   config.js     all settings, read from .env
   db/pool.js    shared PostgreSQL connection pool + transaction helper
   lib/errors.js API errors with plain-language messages
-  middleware/   current-user.js ("Viewing as" → req.user), error-handler.js (one JSON error shape)
+  middleware/   current-user.js ("Viewing as" → req.user), error-handler.js (one JSON error shape),
+                security.js (security headers)
   modules/      one folder per feature; users/ lists users and answers /me
 public/
-  index.html    start page with the "Viewing as" menu
-  css/main.css  styles
+  index.html    start page
+  css/main.css  the one stylesheet
   js/api.js     fetch wrapper that sends X-User-Id with every call
+  js/dom.js     safe element helpers (el, replace, icon)
+  js/layout.js  shared page frame: top bar, "Viewing as", navigation
+  js/ui.js      animations, toasts, empty and error states
   js/viewing-as.js  the "Viewing as" menu
+  js/pages/     one script per page
 db/
   create-db.js  creates the database (npm run db:create)
   migrate.js    applies migrations (npm run db:migrate / db:reset)
