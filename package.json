@@ -12,7 +12,8 @@
     "dev": "node --watch server/server.js",
     "db:create": "node db/create-db.js",
     "db:migrate": "node db/migrate.js",
-    "db:reset": "node db/migrate.js --reset"
+    "db:reset": "node db/migrate.js --reset",
+    "db:seed": "node db/seed.js"
   },
   "dependencies": {
     "dotenv": "^18.0.10",

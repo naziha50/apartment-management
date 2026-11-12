@@ -14,7 +14,7 @@ building admin and staff review, assign, track and resolve them (SRS v1.3, §4.3
 - [x] Step 1: Node.js project + Express server with a health check
 - [x] Step 2: configuration (`.env`) + PostgreSQL connection
 - [x] Step 3: database migrations
-- [ ] Step 4: `users` and `units` tables with demo data
+- [x] Step 4: `users` and `units` tables with demo data
 - [ ] Step 5: "Viewing as" user switcher (development stand-in for login)
 
 ## Requirements
@@ -36,7 +36,24 @@ and its tables:
 ```bash
 npm run db:create
 npm run db:migrate
+npm run db:seed
 ```
+
+### Demo data
+
+`npm run db:seed` adds one building with six units (1A – 3B) and these users. All names and
+contact details are made up.
+
+| Name | Email | Role | Notes |
+|---|---|---|---|
+| Building Admin | admin@example.com | Admin | Can do everything |
+| Karim Uddin | staff@example.com | Staff | May see all requests and review them |
+| Jamal Hossain | caretaker@example.com | Staff | No extra permissions: only requests assigned to him |
+| Rahima Rahman | resident1@example.com | Resident | Owner of 1A **and** 3B (must choose a unit when reporting) |
+| Tanvir Ahmed | resident2@example.com | Resident | Tenant of 2A |
+| সাদিয়া ইসলাম | resident3@example.com | Resident | Owner of 2B (Bangla name) |
+
+Units 1B and 3A are vacant.
 
 ## Database changes (migrations)
 
@@ -49,6 +66,7 @@ next numbered file — never edit one that is already committed. See
 |---|---|
 | `npm run db:migrate` | Applies migrations that have not run yet (safe to run any time) |
 | `npm run db:reset` | **Development only — deletes all data**, then re-applies every migration |
+| `npm run db:seed` | Adds the demo data (safe to run more than once) |
 
 ## Run it
 
@@ -74,5 +92,6 @@ db/
   create-db.js  creates the database (npm run db:create)
   migrate.js    applies migrations (npm run db:migrate / db:reset)
   migrations/   numbered .sql files that build the schema step by step
+  seed.js       demo building, units and users (npm run db:seed)
 .env.example    template for your local .env (never commit .env)
 ```
