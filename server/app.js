@@ -6,7 +6,7 @@
  *   Browser (HTML/CSS/JS) ──fetch JSON──► /api/v1/* ──SQL──► PostgreSQL
  *
  * So far: health check, "Viewing as" user switcher (stand-in for login),
- * security headers and the static frontend. The maintenance API comes next.
+ * security headers, the static frontend and the maintenance API.
  */
 const path = require('node:path');
 const express = require('express');
@@ -15,6 +15,7 @@ const { loadCurrentUser } = require('./middleware/current-user');
 const { errorHandler, apiNotFound } = require('./middleware/error-handler');
 const { securityHeaders, noStore } = require('./middleware/security');
 const usersRoutes = require('./modules/users/users.routes');
+const maintenanceRoutes = require('./modules/maintenance/maintenance.routes');
 
 const ROOT = path.join(__dirname, '..');
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -47,6 +48,7 @@ function createApp() {
     }
   });
   api.use(usersRoutes);
+  api.use('/maintenance', maintenanceRoutes);
 
   api.use(apiNotFound);
   app.use('/api/v1', api);

@@ -21,7 +21,7 @@ building admin and staff review, assign, track and resolve them (SRS v1.3, §4.3
 **Sprint 1 – Report a problem**
 - [x] Step 6: base page layout, stylesheet and security headers
 - [x] Step 7: maintenance request tables
-- [ ] Step 8: submit-request API (FR-16, FR-17)
+- [x] Step 8: submit-request API (FR-16, FR-17)
 - [ ] Step 9: "Report a problem" page
 - [ ] Step 10: my requests list and request detail (FR-21)
 - [ ] Step 11: photo attachments (BR-19)
@@ -118,6 +118,27 @@ next numbered file — never edit one that is already committed. See
 A request moves through the statuses in SRS BR-16 / Appendix A:
 `submitted → under_review → in_progress → resolved → closed`, or ends as `rejected` or `cancelled`.
 
+## Maintenance API
+
+All endpoints are under `/api/v1/maintenance` and need a "Viewing as" user (`X-User-Id` header).
+Errors always look like `{ "error": { "code": "...", "message": "...", "fields": { ... } } }`.
+
+| Method & path | Who | What it does |
+|---|---|---|
+| `POST /requests` | Residents | Submit a request (FR-16, FR-17). Body: `title` (3–120 chars), `description`, `category`, `location` (`unit` or `common_area`), and `unitId` only if the resident has more than one apartment. Returns 201 with the new request (status `submitted`, number `MR-YYYY-NNNNN`). |
+| `GET /my-units` | Residents | The resident's active apartments, for the unit picker |
+
+Categories: `plumbing`, `electrical`, `lift`, `generator`, `water_supply`, `gas`, `cleaning`,
+`security`, `common_area`, `other`.
+
+Example (as Tanvir, user id 5):
+
+```bash
+curl -X POST http://localhost:3000/api/v1/maintenance/requests \
+  -H "Content-Type: application/json" -H "X-User-Id: 5" \
+  -d '{"title":"Kitchen tap leaking","description":"Drips all night","category":"plumbing","location":"unit"}'
+```
+
 ## Run it
 
 ```bash
@@ -141,9 +162,12 @@ server/
   config.js     all settings, read from .env
   db/pool.js    shared PostgreSQL connection pool + transaction helper
   lib/errors.js API errors with plain-language messages
+  lib/validate.js  input checking that reports every field problem at once
   middleware/   current-user.js ("Viewing as" → req.user), error-handler.js (one JSON error shape),
                 security.js (security headers)
-  modules/      one folder per feature; users/ lists users and answers /me
+  modules/      one folder per feature
+    users/        lists users and answers /me
+    maintenance/  routes (HTTP) → service (rules) → repository (SQL), plus constants
 public/
   index.html    start page
   css/main.css  the one stylesheet
