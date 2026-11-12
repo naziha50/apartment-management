@@ -1,0 +1,29 @@
+/* Minimal styles for Sprint 0. The full layout and components arrive in step 6. */
+:root {
+  --bg: #f6f5f1;
+  --surface: #ffffff;
+  --ink: #1b2320;
+  --ink-2: #4a5550;
+  --line: #d9d7cf;
+  --primary: #0d5c55;   /* 7.6:1 contrast on white (NFR-12) */
+  --focus: #e0a100;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Noto Sans Bengali", Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; font-family: var(--font); line-height: 1.55; color: var(--ink); background: var(--bg); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.topbar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem;
+  padding: 0.6rem 1rem; background: var(--primary); color: #fff;
+}
+.brand { font-weight: 650; }
+.viewing-as { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; }
+.viewing-as select {
+  min-height: 40px; max-width: 60vw; padding: 0 0.5rem; font: inherit;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink);
+}
+
+.page { max-width: 1120px; margin: 0 auto; padding: 1.5rem 1rem; }
+.notice { background: #fff1d6; border: 1px solid #ebcf95; border-radius: 8px; padding: 0.75rem 1rem; }

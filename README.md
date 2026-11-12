@@ -15,7 +15,22 @@ building admin and staff review, assign, track and resolve them (SRS v1.3, §4.3
 - [x] Step 2: configuration (`.env`) + PostgreSQL connection
 - [x] Step 3: database migrations
 - [x] Step 4: `users` and `units` tables with demo data
-- [ ] Step 5: "Viewing as" user switcher (development stand-in for login)
+- [x] Step 5: "Viewing as" user switcher (development stand-in for login)
+
+## Who am I? ("Viewing as") — no login yet
+
+Login and authentication (SRS FR-01, FR-02) are **out of scope** for now; this project
+focuses on the maintenance module. To act as different people, the page has a
+**Viewing as** menu listing the demo users. The chosen user's id is sent with every API call
+in the `X-User-Id` header, and `server/middleware/current-user.js` turns it into `req.user`.
+
+⚠ This is a **development stand-in, not security** — anyone can pick any user. All other code
+only reads `req.user`, so adding real login later means changing that one middleware.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/v1/dev/users` | Everyone you can "view as" |
+| `GET /api/v1/me` | The user you are viewing as (401 if none is chosen) |
 
 ## Requirements
 
@@ -78,6 +93,8 @@ Open http://localhost:3000/api/v1/health — it should answer
 `{"status":"ok","database":"connected"}`. If it says `"unreachable"`, check `DATABASE_URL`
 and that PostgreSQL is running.
 
+Then open http://localhost:3000 and pick a user in **Viewing as**.
+
 Use `npm run dev` while coding: it restarts the server whenever a file changes.
 
 ## Project layout
@@ -88,6 +105,14 @@ server/
   server.js     starts the HTTP server
   config.js     all settings, read from .env
   db/pool.js    shared PostgreSQL connection pool + transaction helper
+  lib/errors.js API errors with plain-language messages
+  middleware/   current-user.js ("Viewing as" → req.user), error-handler.js (one JSON error shape)
+  modules/      one folder per feature; users/ lists users and answers /me
+public/
+  index.html    start page with the "Viewing as" menu
+  css/main.css  styles
+  js/api.js     fetch wrapper that sends X-User-Id with every call
+  js/viewing-as.js  the "Viewing as" menu
 db/
   create-db.js  creates the database (npm run db:create)
   migrate.js    applies migrations (npm run db:migrate / db:reset)
