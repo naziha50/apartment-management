@@ -5,9 +5,11 @@
  *
  *   Browser (HTML/CSS/JS) ──fetch JSON──► /api/v1/* ──SQL──► PostgreSQL
  *
- * Sprint 0, step 1: only a health check. The maintenance API is added in Sprint 1.
+ * Sprint 0: a health check that also confirms the database is reachable.
+ * The maintenance API is added in Sprint 1.
  */
 const express = require('express');
+const db = require('./db/pool');
 
 function createApp() {
   const app = express();
@@ -16,7 +18,15 @@ function createApp() {
 
   // All endpoints live under a versioned prefix so the API can evolve safely.
   const api = express.Router();
-  api.get('/health', (req, res) => res.json({ status: 'ok' }));
+  api.get('/health', async (req, res) => {
+    try {
+      await db.query('SELECT 1');
+      res.json({ status: 'ok', database: 'connected' });
+    } catch (err) {
+      console.error('Health check: database unreachable —', err.message);
+      res.status(503).json({ status: 'error', database: 'unreachable' });
+    }
+  });
   app.use('/api/v1', api);
 
   app.get('/', (req, res) => {
