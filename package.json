@@ -1,0 +1,17 @@
+{
+  "name": "apartment-management",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Apartment Management — Maintenance module (CSE327). HTML/CSS frontend, Node.js REST API, PostgreSQL.",
+  "main": "server/server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node --watch server/server.js"
+  },
+  "dependencies": {
+    "express": "^5.3.0"
+  }
+}
