@@ -20,7 +20,7 @@ building admin and staff review, assign, track and resolve them (SRS v1.3, §4.3
 
 **Sprint 1 – Report a problem**
 - [x] Step 6: base page layout, stylesheet and security headers
-- [ ] Step 7: maintenance request tables
+- [x] Step 7: maintenance request tables
 - [ ] Step 8: submit-request API (FR-16, FR-17)
 - [ ] Step 9: "Report a problem" page
 - [ ] Step 10: my requests list and request detail (FR-21)
@@ -107,6 +107,16 @@ next numbered file — never edit one that is already committed. See
 | `npm run db:migrate` | Applies migrations that have not run yet (safe to run any time) |
 | `npm run db:reset` | **Development only — deletes all data**, then re-applies every migration |
 | `npm run db:seed` | Adds the demo data (safe to run more than once) |
+
+### Tables so far
+
+| Migration | Tables | Purpose |
+|---|---|---|
+| `001_create_users_and_units.sql` | `buildings`, `users`, `staff_permissions`, `units`, `occupancies` | Who lives where and who handles requests |
+| `002_create_maintenance_requests.sql` | `maintenance_requests`, `request_updates` | Requests (number `MR-YYYY-NNNNN`, status, priority, assignee) and their full history |
+
+A request moves through the statuses in SRS BR-16 / Appendix A:
+`submitted → under_review → in_progress → resolved → closed`, or ends as `rejected` or `cancelled`.
 
 ## Run it
 
