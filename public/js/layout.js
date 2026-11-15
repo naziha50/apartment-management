@@ -13,18 +13,18 @@ const BUILDING_NAME = 'Green Valley Apartments';
 
 /**
  * Navigation per role. Each later step adds the links for the pages it builds,
- * e.g. { key: 'myRequests', label: 'My requests', href: '/resident/requests.html' }.
+ * e.g. { key: 'requests', label: 'My requests', href: '/resident/requests.html' }.
  * `permission` hides a link from staff who were not granted it (Appendix B).
  */
 const NAV = {
   none: [{ key: 'home', label: 'Home', href: '/' }],
   resident: [
     { key: 'home', label: 'Home', href: '/' },
-    { key: 'myRequests', label: 'My requests', href: '/resident/requests.html' },
+    { key: 'requests', label: 'My requests', href: '/resident/requests.html' },
     { key: 'newRequest', label: 'Report a problem', href: '/resident/new-request.html' },
   ],
-  staff: [{ key: 'home', label: 'Home', href: '/' }],
-  admin: [{ key: 'home', label: 'Home', href: '/' }],
+  staff: [{ key: 'home', label: 'Home', href: '/' }, { key: 'requests', label: 'Requests', href: '/manage/requests.html' }],
+  admin: [{ key: 'home', label: 'Home', href: '/' }, { key: 'requests', label: 'Requests', href: '/manage/requests.html' }],
 };
 
 function canSee(user, item) {

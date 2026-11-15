@@ -11,7 +11,7 @@ import { animateList, emptyState, errorState } from '../ui.js';
 const card = $('#content');
 
 try {
-  const user = await initLayout({ active: 'myRequests' });
+  const user = await initLayout({ active: 'requests' });
   if (user?.role !== 'resident') {
     replace(card, emptyState('This page is for residents.', 'Choose a resident in the “Viewing as” menu to see their requests.'));
   } else {

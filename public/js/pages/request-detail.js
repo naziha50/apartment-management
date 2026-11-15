@@ -45,7 +45,7 @@ function render(r, user) {
   document.title = `${r.requestNumber} · Green Valley Apartments`;
   const back = user.role === 'resident'
     ? { href: '/resident/requests.html', text: '← My requests' }
-    : { href: '/', text: '← Home' };
+    : { href: '/manage/requests.html', text: '← Requests' };
 
   const details = [
     ['Category', categoryLabel(r.category)],
@@ -114,7 +114,7 @@ function render(r, user) {
 }
 
 try {
-  const user = await initLayout({ active: 'myRequests' });
+  const user = await initLayout({ active: 'requests' });
   if (!user) {
     replace(main, el('p', { class: 'callout callout--warn', text: 'Choose a demo user in the “Viewing as” menu to open this request.' }));
   } else {

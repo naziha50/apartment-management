@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Requests · Green Valley Apartments</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <script src="/vendor/motion.js" defer></script>
+  <script type="module" src="/js/pages/manage-requests.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header" id="site-header"></header>
+
+  <main class="page" id="main" tabindex="-1">
+    <div class="page-head">
+      <div>
+        <h1 id="page-title">Maintenance requests</h1>
+        <p class="muted" id="page-hint"></p>
+      </div>
+    </div>
+
+    <!-- FR-18 / FR-19 / FR-20: the requests this admin or staff member works on. -->
+    <section class="card card--flush" id="content" aria-live="polite">
+      <p class="muted empty">Loading…</p>
+    </section>
+  </main>
+</body>
+</html>
