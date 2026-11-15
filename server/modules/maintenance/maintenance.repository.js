@@ -137,7 +137,7 @@ async function findForUpdate(client, id) {
 }
 
 // Columns the service may change; anything else is refused.
-const UPDATABLE = ['status', 'priority', 'reviewed_at', 'rejection_reason', 'resolution_note', 'resolved_at', 'closed_at'];
+const UPDATABLE = ['status', 'priority', 'assigned_to', 'reviewed_at', 'rejection_reason', 'resolution_note', 'resolved_at', 'closed_at'];
 
 /** Changes some columns of a request and stamps updated_at. */
 async function updateRequest(client, id, fields) {
@@ -150,8 +150,28 @@ async function updateRequest(client, id, fields) {
   );
 }
 
+/** FR-19: active staff of a building, for the "assign to" picker. */
+async function activeStaff(buildingId) {
+  const { rows } = await db.query(
+    `SELECT id, full_name FROM users
+      WHERE building_id = $1 AND role = 'staff' AND is_active
+      ORDER BY full_name`,
+    [buildingId],
+  );
+  return rows.map((r) => ({ id: Number(r.id), fullName: r.full_name }));
+}
+
+/** One active staff member of the building, or null (so nobody can assign a resident or an outsider). */
+async function findActiveStaff(client, buildingId, id) {
+  const { rows } = await client.query(
+    `SELECT id, full_name FROM users WHERE id = $1 AND building_id = $2 AND role = 'staff' AND is_active`,
+    [id, buildingId],
+  );
+  return rows[0] || null;
+}
+
 module.exports = {
-  findForUpdate, updateRequest,
+  findForUpdate, updateRequest, activeStaff, findActiveStaff,
   activeUnitsOf, insertRequest, insertUpdate, findById, listRequests, listUpdates,
   insertAttachments, listAttachments, findAttachment,
 };

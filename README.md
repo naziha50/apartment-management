@@ -30,7 +30,7 @@ building admin and staff review, assign, track and resolve them (SRS v1.3, §4.3
 - [x] Step 12: status rules (BR-16, Appendix A) + status-change API (FR-18, FR-20)
 - [x] Step 13: "Manage requests" list for admin and staff
 - [x] Step 14: action buttons on the request page (only the moves the server allows)
-- [ ] Step 15: assign requests to staff (FR-19)
+- [x] Step 15: assign requests to staff (FR-19)
 - [ ] Step 16: progress notes, including internal notes (FR-20)
 
 ## Frontend conventions
@@ -138,6 +138,8 @@ Errors always look like `{ "error": { "code": "...", "message": "...", "fields":
 | `GET /requests/:id` | Everyone | One request with its `updates` (history), `attachments` (photos) and `allowed.transitions` (the status moves you may make now). Requests you may not see answer 404 |
 | `GET /requests/:id/attachments/:attId` | Everyone | One photo, with the same access rule as its request |
 | `POST /requests/:id/transition` | Depends on the move | Change the status (FR-18, FR-20). Body: `to` plus `priority` when reviewing, `note` as the reason when rejecting or as the note when resolving / reopening. A move that is not allowed now answers 409 `TRANSITION_NOT_ALLOWED` |
+| `POST /requests/:id/assign` | Admin, staff with `maintenance.assign` | Assign or reassign to an active staff member (FR-19). Body: `staffId`. Allowed while the request is submitted, under review or in progress (otherwise 409 `NOT_ASSIGNABLE`). Each change is added to the history |
+| `GET /staff` | Admin, staff with `maintenance.assign` | Active staff, for the "assign to" picker |
 | `GET /my-units` | Residents | The resident's active apartments, for the unit picker |
 
 Photos are checked by their content, not their name: a file renamed to `.jpg` is rejected.

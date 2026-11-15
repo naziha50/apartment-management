@@ -4,7 +4,8 @@
  *
  * So far: FR-16 submit a request, FR-17 attach the resident and unit automatically,
  * FR-21 track requests (list + detail with history), BR-19 photos,
- * FR-18 / FR-20 status changes following the rules in state-machine.js (BR-16).
+ * FR-18 / FR-20 status changes following the rules in state-machine.js (BR-16),
+ * FR-19 assigning requests to staff.
  */
 const db = require('../../db/pool');
 const repo = require('./maintenance.repository');
@@ -150,7 +151,7 @@ async function getRequest(user, rawId) {
       createdAt: u.created_at,
     })),
     // The page shows only the moves the server allows (FR-20); they are checked again when posted.
-    allowed: { transitions: sm.allowedTransitions(row, user) },
+    allowed: { transitions: sm.allowedTransitions(row, user), assign: sm.canAssign(row, user) },
   };
 }
 
@@ -219,4 +220,50 @@ async function getAttachment(user, rawRequestId, rawAttachmentId) {
   return { file, mimeType: att.mime_type, name: att.original_name };
 }
 
-module.exports = { createRequest, myUnits, listRequests, getRequest, getAttachment, transition, toDto };
+/* ------------------------------------------------------------ FR-19 assign */
+
+/** Staff the user may assign requests to. */
+async function staffList(user) {
+  if (!can(user, 'maintenance.assign')) throw forbidden('You cannot assign requests.');
+  return repo.activeStaff(user.buildingId);
+}
+
+/**
+ * FR-19: assign or reassign a request to an active staff member of the building.
+ * Every change is kept in the history, so it shows who was responsible when.
+ * shortcut: staff with maintenance.assign but not view_all lose sight of a request they
+ * reassign away and get a 404 after saving; revisit when staff permissions get a screen.
+ */
+async function assign(user, rawId, body) {
+  const id = Number(rawId);
+  const v = new Validator(body);
+  const staffId = v.id('staffId', { label: 'Staff member' });
+  v.throwIfInvalid();
+
+  await db.withTransaction(async (client) => {
+    const row = Number.isSafeInteger(id) && id > 0 ? await repo.findForUpdate(client, id) : null;
+    if (!row || !canView(row, user)) throw notFound('We could not find that request.');
+    if (!can(user, 'maintenance.assign')) throw forbidden('You cannot assign requests.');
+    if (!sm.canAssign(row, user)) {
+      throw conflict(`A request that is ${statusText(row.status)} can no longer be assigned.`, 'NOT_ASSIGNABLE');
+    }
+
+    const staff = await repo.findActiveStaff(client, user.buildingId, staffId);
+    if (!staff) {
+      v.fail('staffId', 'Please choose an active staff member.');
+      v.throwIfInvalid();
+    }
+    if (Number(row.assigned_to) === staffId) return; // already theirs: nothing to record
+
+    await repo.updateRequest(client, id, { assigned_to: staffId });
+    await repo.insertUpdate(client, {
+      requestId: id,
+      authorId: user.id,
+      kind: 'assignment',
+      note: `${row.assigned_to ? 'Reassigned' : 'Assigned'} to ${staff.full_name}.`,
+    });
+  });
+  return getRequest(user, id);
+}
+
+module.exports = { createRequest, myUnits, listRequests, getRequest, getAttachment, transition, staffList, assign, toDto };

@@ -10,6 +10,9 @@
  *   GET  /requests/:id/attachments/:attId  one photo       BR-19
  *   POST /requests/:id/transition  change status           FR-18, FR-20, BR-16
  *                    body { to, priority?, note? }
+ *   POST /requests/:id/assign  assign to staff            FR-19
+ *                    body { staffId }
+ *   GET  /staff      staff that requests can be assigned to FR-19
  *
  * Routes only handle HTTP; every rule is checked in maintenance.service.js,
  * so no route can skip it (NFR-02).
@@ -44,6 +47,14 @@ router.get('/requests/:id/attachments/:attId', async (req, res) => {
 
 router.post('/requests/:id/transition', async (req, res) => {
   res.json(await service.transition(req.user, req.params.id, req.body));
+});
+
+router.post('/requests/:id/assign', async (req, res) => {
+  res.json(await service.assign(req.user, req.params.id, req.body));
+});
+
+router.get('/staff', async (req, res) => {
+  res.json({ items: await service.staffList(req.user) });
 });
 
 router.get('/my-units', async (req, res) => {

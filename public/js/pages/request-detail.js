@@ -61,22 +61,65 @@ function actionForm(r, user, t) {
 
   const button = el('button', { type: 'submit', class: a.danger ? 'btn btn-danger' : 'btn btn-primary', text: a.submit });
   const form = el('form', { class: 'form', novalidate: true }, el('p', { class: 'hint', text: a.hint }), fields, el('div', { class: 'form-actions' }, button));
+  onSubmit(form, button, user, `/maintenance/requests/${r.id}/transition`, () => ({ to: t.to }), (u) => `Request ${u.requestNumber} is now ${STATUS_LABELS[u.status].toLowerCase()}.`);
+  return el('details', { class: 'action' }, el('summary', { text: a.label }), form);
+}
+
+/** FR-19: pick an active staff member. The staff list is loaded the first time the item is opened. */
+function assignForm(r, user) {
+  const verb = r.assignedTo ? 'Reassign' : 'Assign to staff';
+  const select = el('select', { id: 'assign-staff', name: 'staffId', required: true }, el('option', { value: '', text: 'Loading staff…' }));
+  const button = el('button', { type: 'submit', class: 'btn btn-primary', text: r.assignedTo ? 'Reassign' : 'Assign' });
+  const form = el(
+    'form',
+    { class: 'form', novalidate: true },
+    el('p', { class: 'hint', text: 'The staff member will see this request in their tasks.' }),
+    el('div', { class: 'field' }, el('label', { for: 'assign-staff', text: 'Staff member' }), select),
+    el('div', { class: 'form-actions' }, button),
+  );
+  const details = el('details', { class: 'action' }, el('summary', { text: verb }), form);
+
+  let loaded = false;
+  details.addEventListener('toggle', async () => {
+    if (!details.open || loaded) return;
+    loaded = true;
+    try {
+      const { items } = await api.get('/maintenance/staff');
+      const others = items.filter((s) => s.id !== r.assignedTo?.id);
+      replace(
+        select,
+        el('option', { value: '', text: others.length ? 'Choose a staff member' : 'No other active staff' }),
+        others.map((s) => el('option', { value: String(s.id), text: s.fullName })),
+      );
+    } catch (err) {
+      loaded = false;
+      showFieldErrors(form, {}, err.message);
+    }
+  });
+  onSubmit(form, button, user, `/maintenance/requests/${r.id}/assign`, () => ({}), (u) => `Request ${u.requestNumber} is now assigned to ${u.assignedTo.fullName}.`);
+  return details;
+}
+
+/**
+ * Posts a form, then redraws the page with the request the server sends back.
+ * Field errors appear next to their fields; anything else at the top of the form.
+ */
+function onSubmit(form, button, user, path, extra, message) {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const body = { to: t.to, ...Object.fromEntries(new FormData(form)) };
+    const body = { ...extra(), ...Object.fromEntries(new FormData(form)) };
     await withBusy(button, async () => {
       try {
-        const updated = await api.post(`/maintenance/requests/${r.id}/transition`, body);
+        const updated = await api.post(path, body);
         justSubmitted = false;
         render(updated, user);
         main.focus(); // the clicked button is gone; keep keyboard users on the page
-        toast(`Request ${updated.requestNumber} is now ${STATUS_LABELS[updated.status].toLowerCase()}.`, 'ok');
+        toast(message(updated), 'ok');
       } catch (err) {
         showFieldErrors(form, err.fields, err.message);
       }
     });
   });
-  return el('details', { class: 'action' }, el('summary', { text: a.label }), form);
 }
 
 /** One line of history in plain words. */
@@ -87,7 +130,7 @@ function describe(u) {
       : `Request ${STATUS_LABELS[u.toStatus].toLowerCase()}`;
   }
   if (u.kind === 'priority') return 'Priority changed';
-  if (u.kind === 'assignment') return 'Assigned to staff';
+  if (u.kind === 'assignment') return 'Staff assignment'; // the note says who
   return 'Note added';
 }
 
@@ -152,8 +195,13 @@ function render(r, user) {
       el('div', {}, el('p', { class: 'muted', text: r.requestNumber }), el('h1', { text: r.title })),
       statusBadge(r.status),
     ),
-    r.allowed.transitions.length
-      ? el('section', { class: 'card', 'aria-labelledby': 'actions-title' }, el('h2', { id: 'actions-title', text: 'Actions' }), el('div', { class: 'actions' }, r.allowed.transitions.map((t) => actionForm(r, user, t))))
+    r.allowed.transitions.length || r.allowed.assign
+      ? el(
+          'section',
+          { class: 'card', 'aria-labelledby': 'actions-title' },
+          el('h2', { id: 'actions-title', text: 'Actions' }),
+          el('div', { class: 'actions' }, r.allowed.assign ? assignForm(r, user) : null, r.allowed.transitions.map((t) => actionForm(r, user, t))),
+        )
       : null,
     el(
       'div',

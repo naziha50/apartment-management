@@ -59,4 +59,12 @@ function findTransition(request, user, to, now = new Date()) {
   return allowedTransitions(request, user, now).find((t) => t.to === to) || null;
 }
 
-module.exports = { REOPEN_DAYS, TRANSITIONS, allowedTransitions, findTransition };
+// FR-19: a request can be (re)assigned until it is resolved or finished.
+const ASSIGNABLE = Object.freeze(['submitted', 'under_review', 'in_progress']);
+
+/** May this user assign or reassign this request to staff right now? (FR-19, Appendix B) */
+function canAssign(request, user) {
+  return can(user, 'maintenance.assign') && ASSIGNABLE.includes(request.status);
+}
+
+module.exports = { REOPEN_DAYS, TRANSITIONS, ASSIGNABLE, allowedTransitions, findTransition, canAssign };

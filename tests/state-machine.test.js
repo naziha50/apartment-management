@@ -2,7 +2,7 @@
 /** Unit tests for the request status rules (BR-16, Appendix A). Run with `npm test`. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { allowedTransitions, findTransition } = require('../server/modules/maintenance/state-machine');
+const { allowedTransitions, findTransition, canAssign } = require('../server/modules/maintenance/state-machine');
 
 const admin = { id: 1, role: 'admin', permissions: [] };
 const reviewer = { id: 2, role: 'staff', permissions: ['maintenance.review'] };
@@ -49,6 +49,20 @@ test('the resident confirms, or reopens within 7 days', () => {
 
   const old = req({ status: 'resolved', resolved_at: '2026-11-01T12:00:00Z' });
   assert.deepEqual(moves(old, resident, now), ['closed']);
+});
+
+test('only the admin or staff with maintenance.assign can assign, while the request is open', () => {
+  const assigner = { id: 6, role: 'staff', permissions: ['maintenance.assign'] };
+  for (const status of ['submitted', 'under_review', 'in_progress']) {
+    assert.equal(canAssign(req({ status }), admin), true, status);
+    assert.equal(canAssign(req({ status }), assigner), true, status);
+    assert.equal(canAssign(req({ status }), reviewer), false, status);
+    assert.equal(canAssign(req({ status }), caretaker), false, status);
+    assert.equal(canAssign(req({ status }), resident), false, status);
+  }
+  for (const status of ['resolved', 'closed', 'rejected', 'cancelled']) {
+    assert.equal(canAssign(req({ status }), admin), false, status);
+  }
 });
 
 test('final statuses allow no moves', () => {
