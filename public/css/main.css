@@ -288,6 +288,19 @@ table.data tbody tr:hover { background: #fafaf7; }
 .photos img { object-fit: cover; border: 1px solid var(--line); background: var(--surface-2); }
 input[type="file"] { min-height: var(--tap); font: inherit; max-width: 100%; }
 
+/* Actions on a request (FR-18, FR-20): one disclosure per allowed move */
+.actions { display: grid; gap: 0.5rem; }
+.action { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+.action > summary {
+  display: flex; align-items: center; min-height: var(--tap); padding: 0 1rem;
+  font-weight: 600; cursor: pointer; list-style: none;
+}
+.action > summary::-webkit-details-marker { display: none; }
+.action > summary::after { content: "▸" / ""; margin-left: auto; color: var(--ink-2); }
+.action[open] > summary::after { content: "▾" / ""; } /* decorative: empty alt text */
+.action[open] > summary { border-bottom: 1px solid var(--line); }
+.action > form { padding: 1rem; }
+
 /* ---------------------------------------------------------- accessibility */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }

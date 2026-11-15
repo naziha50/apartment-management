@@ -29,7 +29,7 @@ building admin and staff review, assign, track and resolve them (SRS v1.3, §4.3
 **Sprint 2 – Handle requests**
 - [x] Step 12: status rules (BR-16, Appendix A) + status-change API (FR-18, FR-20)
 - [x] Step 13: "Manage requests" list for admin and staff
-- [ ] Step 14: action buttons on the request page (only the moves the server allows)
+- [x] Step 14: action buttons on the request page (only the moves the server allows)
 - [ ] Step 15: assign requests to staff (FR-19)
 - [ ] Step 16: progress notes, including internal notes (FR-20)
 
