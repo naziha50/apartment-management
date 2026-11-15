@@ -22,7 +22,7 @@ building admin and staff review, assign, track and resolve them (SRS v1.3, §4.3
 - [x] Step 6: base page layout, stylesheet and security headers
 - [x] Step 7: maintenance request tables
 - [x] Step 8: submit-request API (FR-16, FR-17)
-- [ ] Step 9: "Report a problem" page
+- [x] Step 9: "Report a problem" page
 - [ ] Step 10: my requests list and request detail (FR-21)
 - [ ] Step 11: photo attachments (BR-19)
 

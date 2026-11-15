@@ -70,3 +70,50 @@ export function errorState(err, retry) {
     retry ? el('button', { type: 'button', class: 'btn btn-secondary', onclick: retry, text: 'Try again' }) : null,
   );
 }
+
+/**
+ * Shows the server's validation errors next to each field (UI-04), or one
+ * message at the top of the form when no field is to blame. Clears old ones first.
+ */
+export function showFieldErrors(form, fields = {}, message) {
+  form.querySelectorAll('.field-error, .form-alert').forEach((node) => node.remove());
+  form.querySelectorAll('[aria-invalid]').forEach((node) => {
+    node.removeAttribute('aria-invalid');
+    const rest = (node.getAttribute('aria-describedby') || '').split(' ').filter((id) => !id.endsWith('-error')).join(' ');
+    if (rest) node.setAttribute('aria-describedby', rest);
+    else node.removeAttribute('aria-describedby');
+  });
+
+  let first = null;
+  for (const [name, text] of Object.entries(fields)) {
+    const input = form.elements[name];
+    const inputs = input instanceof RadioNodeList ? [...input] : [input];
+    if (!inputs[0]) continue;
+    const id = `${name}-error`;
+    (inputs[0].closest('.field') || inputs[0].parentElement).append(el('p', { class: 'field-error', id, text }));
+    for (const i of inputs) {
+      i.setAttribute('aria-invalid', 'true');
+      i.setAttribute('aria-describedby', [i.getAttribute('aria-describedby'), id].filter(Boolean).join(' '));
+    }
+    first ??= inputs[0];
+  }
+  if (message && !first) {
+    const alert = el('div', { class: 'form-alert', role: 'alert', text: message });
+    form.prepend(alert);
+    alert.scrollIntoView({ block: 'nearest' });
+  }
+  first?.focus();
+}
+
+/** Disables a button and shows a spinner while `fn` runs, so a form is not sent twice. */
+export async function withBusy(button, fn) {
+  const original = [...button.childNodes];
+  button.disabled = true;
+  button.replaceChildren(el('span', { class: 'spinner', 'aria-hidden': 'true' }), 'Sending…');
+  try {
+    return await fn();
+  } finally {
+    button.disabled = false;
+    button.replaceChildren(...original);
+  }
+}

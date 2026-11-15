@@ -43,7 +43,7 @@
 
 /* -------------------------------------------------------------------- base */
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 10rem; } /* keeps focused fields clear of the sticky header */
 body {
   margin: 0;
   font-family: var(--font);
