@@ -3,14 +3,16 @@
  * Maintenance business rules (SRS §4.3).
  *
  * So far: FR-16 submit a request, FR-17 attach the resident and unit automatically,
- * FR-21 track requests (list + detail with history), BR-19 photos.
+ * FR-21 track requests (list + detail with history), BR-19 photos,
+ * FR-18 / FR-20 status changes following the rules in state-machine.js (BR-16).
  */
 const db = require('../../db/pool');
 const repo = require('./maintenance.repository');
 const uploads = require('./uploads');
-const { CATEGORIES, LOCATIONS } = require('./maintenance.constants');
+const sm = require('./state-machine');
+const { CATEGORIES, LOCATIONS, STATUSES, PRIORITIES } = require('./maintenance.constants');
 const { Validator } = require('../../lib/validate');
-const { forbidden, notFound } = require('../../lib/errors');
+const { forbidden, notFound, conflict } = require('../../lib/errors');
 const { can } = require('../../middleware/current-user');
 
 /** Turns a database row into the JSON the API returns (camelCase, numbers as numbers). */
@@ -147,7 +149,61 @@ async function getRequest(user, rawId) {
       author: u.author_name,
       createdAt: u.created_at,
     })),
+    // The page shows only the moves the server allows (FR-20); they are checked again when posted.
+    allowed: { transitions: sm.allowedTransitions(row, user) },
   };
+}
+
+/* ------------------------------------------------------ FR-18 / FR-20 status */
+
+const statusText = (s) => s.replace('_', ' ');
+
+/**
+ * Every status move in Appendix A goes through here: review (with priority),
+ * reject (with reason), start work, resolve (with note), and the resident's
+ * cancel, confirm and reopen (FR-35).
+ */
+async function transition(user, rawId, body) {
+  const id = Number(rawId);
+  const v = new Validator(body);
+  const to = v.oneOf('to', STATUSES, { label: 'Status' });
+  v.throwIfInvalid();
+
+  await db.withTransaction(async (client) => {
+    const row = Number.isSafeInteger(id) && id > 0 ? await repo.findForUpdate(client, id) : null;
+    if (!row || !canView(row, user)) throw notFound('We could not find that request.');
+    const move = sm.findTransition(row, user, to);
+    if (!move) {
+      throw conflict(`This request cannot be moved from "${statusText(row.status)}" to "${statusText(to)}" right now.`, 'TRANSITION_NOT_ALLOWED');
+    }
+
+    const priority = move.needs === 'priority' ? v.oneOf('priority', PRIORITIES, { label: 'Priority' }) : null;
+    const note = v.text('note', {
+      required: move.needs === 'reason' || move.needs === 'note',
+      max: 2000,
+      label: move.needs === 'reason' ? 'Reason' : 'Note',
+    });
+    v.throwIfInvalid();
+
+    const now = new Date();
+    const fields = { status: to };
+    if (to === 'under_review') Object.assign(fields, { priority, reviewed_at: now });
+    if (to === 'rejected') fields.rejection_reason = note;
+    if (to === 'resolved') Object.assign(fields, { resolution_note: note, resolved_at: now });
+    if (to === 'closed') fields.closed_at = now;
+    if (move.kind === 'reopen') fields.resolved_at = null;
+    await repo.updateRequest(client, id, fields);
+
+    await repo.insertUpdate(client, {
+      requestId: id,
+      authorId: user.id,
+      kind: 'status_change',
+      fromStatus: row.status,
+      toStatus: to,
+      note: note ?? (priority ? `Priority set to ${priority}.` : null),
+    });
+  });
+  return getRequest(user, id);
 }
 
 /** BR-19: a photo, only for people who may see its request (NFR-23). */
@@ -163,4 +219,4 @@ async function getAttachment(user, rawRequestId, rawAttachmentId) {
   return { file, mimeType: att.mime_type, name: att.original_name };
 }
 
-module.exports = { createRequest, myUnits, listRequests, getRequest, getAttachment, toDto };
+module.exports = { createRequest, myUnits, listRequests, getRequest, getAttachment, transition, toDto };

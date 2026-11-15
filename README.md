@@ -9,7 +9,7 @@ building admin and staff review, assign, track and resolve them (SRS v1.3, §4.3
 
 ## Status
 
-🚧 Work in progress — Sprint 1 (report a problem).
+🚧 Work in progress — Sprint 2 (handle requests).
 
 **Sprint 0 – Setup** ✅
 - [x] Step 1: Node.js project + Express server with a health check
@@ -18,13 +18,20 @@ building admin and staff review, assign, track and resolve them (SRS v1.3, §4.3
 - [x] Step 4: `users` and `units` tables with demo data
 - [x] Step 5: "Viewing as" user switcher (development stand-in for login)
 
-**Sprint 1 – Report a problem**
+**Sprint 1 – Report a problem** ✅
 - [x] Step 6: base page layout, stylesheet and security headers
 - [x] Step 7: maintenance request tables
 - [x] Step 8: submit-request API (FR-16, FR-17)
 - [x] Step 9: "Report a problem" page
 - [x] Step 10: my requests list and request detail (FR-21)
 - [x] Step 11: photo attachments (BR-19)
+
+**Sprint 2 – Handle requests**
+- [x] Step 12: status rules (BR-16, Appendix A) + status-change API (FR-18, FR-20)
+- [ ] Step 13: "Manage requests" list for admin and staff
+- [ ] Step 14: action buttons on the request page (only the moves the server allows)
+- [ ] Step 15: assign requests to staff (FR-19)
+- [ ] Step 16: progress notes, including internal notes (FR-20)
 
 ## Frontend conventions
 
@@ -128,11 +135,24 @@ Errors always look like `{ "error": { "code": "...", "message": "...", "fields":
 |---|---|---|
 | `POST /requests` | Residents | Submit a request (FR-16, FR-17). Body: `title` (3–120 chars), `description`, `category`, `location` (`unit` or `common_area`), and `unitId` only if the resident has more than one apartment. Send JSON, or `multipart/form-data` to add up to 3 `photos` (JPG/PNG/WEBP, 5 MB each, BR-19). Returns 201 with the new request (status `submitted`, number `MR-YYYY-NNNNN`). |
 | `GET /requests` | Everyone | Requests you may see, newest activity first (FR-21): residents their own, staff those assigned to them, admins and staff with `maintenance.view_all` all of them |
-| `GET /requests/:id` | Everyone | One request with its `updates` (history) and `attachments` (photos). Requests you may not see answer 404 |
+| `GET /requests/:id` | Everyone | One request with its `updates` (history), `attachments` (photos) and `allowed.transitions` (the status moves you may make now). Requests you may not see answer 404 |
 | `GET /requests/:id/attachments/:attId` | Everyone | One photo, with the same access rule as its request |
+| `POST /requests/:id/transition` | Depends on the move | Change the status (FR-18, FR-20). Body: `to` plus `priority` when reviewing, `note` as the reason when rejecting or as the note when resolving / reopening. A move that is not allowed now answers 409 `TRANSITION_NOT_ALLOWED` |
 | `GET /my-units` | Residents | The resident's active apartments, for the unit picker |
 
 Photos are checked by their content, not their name: a file renamed to `.jpg` is rejected.
+
+Who may change the status (rules in `server/modules/maintenance/state-machine.js`):
+
+| Move | Who | Needs |
+|---|---|---|
+| submitted → under review | Admin, staff with `maintenance.review` | `priority` |
+| submitted / under review → rejected | Admin, staff with `maintenance.review` | `note` (reason) |
+| submitted → cancelled | The resident who reported it | — |
+| under review → in progress | Admin or the assigned staff member, once someone is assigned | — |
+| in progress → resolved | Admin or the assigned staff member | `note` |
+| resolved → closed | The resident who reported it | — |
+| resolved → in progress (reopen) | The resident, within 7 days of it being resolved | `note` |
 
 Categories: `plumbing`, `electrical`, `lift`, `generator`, `water_supply`, `gas`, `cleaning`,
 `security`, `common_area`, `other`.
@@ -163,6 +183,15 @@ and that PostgreSQL is running.
 Then open http://localhost:3000 and pick a user in **Viewing as**.
 
 Use `npm run dev` while coding: it restarts the server whenever a file changes.
+
+## Tests
+
+```bash
+npm test
+```
+
+Runs every `*.test.js` file with Node's built-in test runner (no extra packages). So far it
+covers the status rules in `tests/state-machine.test.js`.
 
 ## Project layout
 

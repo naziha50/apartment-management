@@ -130,7 +130,28 @@ async function findAttachment(requestId, attachmentId) {
   return rows[0] || null;
 }
 
+/** The request row, locked until the transaction ends so two people cannot change it at once. */
+async function findForUpdate(client, id) {
+  const { rows } = await client.query('SELECT * FROM maintenance_requests WHERE id = $1 FOR UPDATE', [id]);
+  return rows[0] || null;
+}
+
+// Columns the service may change; anything else is refused.
+const UPDATABLE = ['status', 'priority', 'reviewed_at', 'rejection_reason', 'resolution_note', 'resolved_at', 'closed_at'];
+
+/** Changes some columns of a request and stamps updated_at. */
+async function updateRequest(client, id, fields) {
+  const keys = Object.keys(fields);
+  if (keys.some((k) => !UPDATABLE.includes(k))) throw new Error(`updateRequest: column not allowed in ${keys}`);
+  const sets = keys.map((k, i) => `${k} = $${i + 2}`);
+  await client.query(
+    `UPDATE maintenance_requests SET ${sets.join(', ')}, updated_at = now() WHERE id = $1`,
+    [id, ...keys.map((k) => fields[k])],
+  );
+}
+
 module.exports = {
+  findForUpdate, updateRequest,
   activeUnitsOf, insertRequest, insertUpdate, findById, listRequests, listUpdates,
   insertAttachments, listAttachments, findAttachment,
 };

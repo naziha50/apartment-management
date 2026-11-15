@@ -8,6 +8,8 @@
  *   GET  /requests   requests the user may see             FR-21
  *   GET  /requests/:id  one request with its history       FR-21
  *   GET  /requests/:id/attachments/:attId  one photo       BR-19
+ *   POST /requests/:id/transition  change status           FR-18, FR-20, BR-16
+ *                    body { to, priority?, note? }
  *
  * Routes only handle HTTP; every rule is checked in maintenance.service.js,
  * so no route can skip it (NFR-02).
@@ -38,6 +40,10 @@ router.get('/requests/:id/attachments/:attId', async (req, res) => {
   res.set('Content-Type', photo.mimeType);
   res.set('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(photo.name)}`);
   res.sendFile(photo.file);
+});
+
+router.post('/requests/:id/transition', async (req, res) => {
+  res.json(await service.transition(req.user, req.params.id, req.body));
 });
 
 router.get('/my-units', async (req, res) => {

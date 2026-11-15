@@ -13,7 +13,8 @@
     "db:create": "node db/create-db.js",
     "db:migrate": "node db/migrate.js",
     "db:reset": "node db/migrate.js --reset",
-    "db:seed": "node db/seed.js"
+    "db:seed": "node db/seed.js",
+    "test": "node --test"
   },
   "dependencies": {
     "animejs": "^4.5.0",
