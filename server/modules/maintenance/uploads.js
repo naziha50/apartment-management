@@ -27,7 +27,9 @@ function photosField(req, res, next) {
     if (err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE') {
       return next(badRequest('Too many photos.', { photos: `You can attach up to ${config.uploads.maxFiles} photos.` }));
     }
-    return next(err);
+    // Files are kept in memory, so anything else here is a bad form from the browser
+    // (too many fields, a broken or cut-off upload), not a server fault.
+    return next(badRequest('The form could not be read. Please try sending it again.'));
   });
 }
 
@@ -56,10 +58,15 @@ function inspectFiles(files = []) {
 async function saveFiles(inspected) {
   await fs.mkdir(config.uploads.dir, { recursive: true });
   const saved = [];
-  for (const f of inspected) {
-    const storedName = `${crypto.randomUUID()}.${f.ext}`;
-    await fs.writeFile(path.join(config.uploads.dir, storedName), f.buffer, { flag: 'wx' });
-    saved.push({ storedName, originalName: f.originalName, mime: f.mime, size: f.size });
+  try {
+    for (const f of inspected) {
+      const storedName = `${crypto.randomUUID()}.${f.ext}`;
+      await fs.writeFile(path.join(config.uploads.dir, storedName), f.buffer, { flag: 'wx' });
+      saved.push({ storedName, originalName: f.originalName, mime: f.mime, size: f.size });
+    }
+  } catch (err) {
+    await removeFiles(saved); // e.g. disk full on the 2nd photo: do not leave the 1st behind
+    throw err;
   }
   return saved;
 }

@@ -16,8 +16,10 @@ const LOCATIONS = Object.freeze(['unit', 'common_area']);
 // BR-16
 const STATUSES = Object.freeze(['submitted', 'under_review', 'in_progress', 'resolved', 'closed', 'rejected', 'cancelled']);
 const FINAL_STATUSES = Object.freeze(['closed', 'rejected', 'cancelled']);
+// Someone in the office or on staff still has to act (assigning is allowed, the overview counts these).
+const NEEDS_ACTION = Object.freeze(['submitted', 'under_review', 'in_progress']);
 
 // FR-18
 const PRIORITIES = Object.freeze(['low', 'medium', 'high']);
 
-module.exports = { CATEGORIES, LOCATIONS, STATUSES, FINAL_STATUSES, PRIORITIES };
+module.exports = { CATEGORIES, LOCATIONS, STATUSES, FINAL_STATUSES, NEEDS_ACTION, PRIORITIES };

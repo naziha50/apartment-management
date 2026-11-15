@@ -26,6 +26,7 @@ const express = require('express');
 const service = require('./maintenance.service');
 const { photosField } = require('./uploads');
 const { requireUser } = require('../../middleware/current-user');
+const { notFound } = require('../../lib/errors');
 
 const router = express.Router();
 router.use(requireUser);
@@ -43,11 +44,18 @@ router.get('/requests/:id', async (req, res) => {
 });
 
 // Photos are private: served only through the API, never from /public (NFR-23).
-router.get('/requests/:id/attachments/:attId', async (req, res) => {
+router.get('/requests/:id/attachments/:attId', async (req, res, next) => {
   const photo = await service.getAttachment(req.user, req.params.id, req.params.attId);
-  res.set('Content-Type', photo.mimeType);
-  res.set('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(photo.name)}`);
-  res.sendFile(photo.file);
+  // Headers go through sendFile so an error reply is not labelled as an image.
+  const headers = {
+    'Content-Type': photo.mimeType,
+    'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(photo.name)}`,
+  };
+  res.sendFile(photo.file, { headers }, (err) => {
+    if (!err) return;
+    // The database row exists but the file is gone (e.g. storage/uploads was cleared).
+    next(err.code === 'ENOENT' ? notFound('We could not find that photo.') : err);
+  });
 });
 
 router.post('/requests/:id/transition', async (req, res) => {

@@ -9,7 +9,7 @@
  */
 import { api } from '../api.js';
 import { $, el, replace } from '../dom.js';
-import { CATEGORY_LABELS, PRIORITY_LABELS, STATUS_LABELS, categoryLabel, formatDate, priorityBadge, statusBadge } from '../format.js';
+import { CATEGORY_LABELS, NEEDS_ACTION, PRIORITY_LABELS, STATUS_LABELS, categoryLabel, formatDate, priorityBadge, statusBadge } from '../format.js';
 import { initLayout } from '../layout.js';
 import { animateList, emptyState, errorState, pagination } from '../ui.js';
 
@@ -20,8 +20,6 @@ const seesAll = (user) => user.role === 'admin' || user.permissions.includes('ma
 
 // "Open" = everything still being worked on, the most useful view for the office.
 const OPEN = 'submitted,under_review,in_progress,resolved';
-// "Needs action" = the office or staff still have to do something (used by the home overview).
-const NEEDS_ACTION = 'submitted,under_review,in_progress';
 const FILTER_KEYS = ['status', 'priority', 'category', 'assigned', 'q'];
 
 /** The filter form; its field names match the API's query parameters. */

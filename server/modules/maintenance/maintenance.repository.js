@@ -6,6 +6,7 @@
  * inside one transaction.
  */
 const db = require('../../db/pool');
+const { NEEDS_ACTION } = require('./maintenance.constants');
 
 /** FR-17: units the resident lives in today (start date passed, no end date or end date not passed). */
 async function activeUnitsOf(residentId) {
@@ -43,8 +44,8 @@ async function insertUpdate(client, u) {
 }
 
 /** One request with its unit number and the names of the people involved. */
-async function findById(id, client = db) {
-  const { rows } = await client.query(
+async function findById(id) {
+  const { rows } = await db.query(
     `SELECT r.*, u.unit_number, s.full_name AS submitted_by_name, a.full_name AS assigned_to_name
        FROM maintenance_requests r
        LEFT JOIN units u ON u.id = r.unit_id
@@ -192,11 +193,11 @@ async function overview(buildingId) {
        count(*) FILTER (WHERE status = 'in_progress')  AS in_progress,
        count(*) FILTER (WHERE status = 'resolved')     AS resolved,
        count(*) FILTER (WHERE status = 'closed')       AS closed,
-       count(*) FILTER (WHERE status IN ('submitted', 'under_review', 'in_progress') AND assigned_to IS NULL) AS unassigned,
-       count(*) FILTER (WHERE status IN ('submitted', 'under_review', 'in_progress') AND priority = 'high') AS high_open
+       count(*) FILTER (WHERE status = ANY($2::request_status[]) AND assigned_to IS NULL) AS unassigned,
+       count(*) FILTER (WHERE status = ANY($2::request_status[]) AND priority = 'high') AS high_open
      FROM maintenance_requests
      WHERE building_id = $1`,
-    [buildingId],
+    [buildingId, NEEDS_ACTION],
   );
   // count() comes back from PostgreSQL as text; the API sends numbers.
   return Object.fromEntries(Object.entries(rows[0]).map(([k, v]) => [k, Number(v)]));

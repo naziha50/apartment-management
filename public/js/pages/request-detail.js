@@ -175,18 +175,23 @@ function describe(u) {
   return u.isInternal ? 'Internal note (staff only)' : 'Note added';
 }
 
+// Photo API url -> promise of an in-memory blob: URL. Photos never change, so every redraw
+// after an action reuses the same copy instead of downloading it again (and leaking the old one).
+const photoCache = new Map();
+
 /** A thumbnail that opens the full photo. The image is loaded through the API (see api.blob). */
 function photoLink(a) {
   const img = el('img', { alt: a.name });
   const link = el('a', { href: '#', target: '_blank', rel: 'noopener', 'aria-label': `Open photo ${a.name}` }, img);
-  api
-    .blob(a.url)
-    .then((file) => {
-      const url = URL.createObjectURL(file);
+  if (!photoCache.has(a.url)) photoCache.set(a.url, api.blob(a.url).then((file) => URL.createObjectURL(file)));
+  photoCache
+    .get(a.url)
+    .then((url) => {
       img.src = url;
       link.href = url;
     })
     .catch(() => {
+      photoCache.delete(a.url); // try again on the next redraw
       img.alt = `${a.name} (could not be loaded)`;
     });
   return link;

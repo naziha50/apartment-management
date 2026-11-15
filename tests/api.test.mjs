@@ -27,8 +27,13 @@ const testUrl = process.env.TEST_DATABASE_URL || (() => {
   u.pathname += '_test';
   return u.toString();
 })();
-if (new URL(testUrl).pathname === new URL(devUrl).pathname && !process.env.TEST_DATABASE_URL) {
-  throw new Error('The test database must not be the development database.');
+// The tests wipe this database, so it must never be the development one (same host, port and name).
+const where = (u) => {
+  const url = new URL(u);
+  return `${url.hostname}:${url.port || 5432}${url.pathname}`;
+};
+if (where(testUrl) === where(devUrl)) {
+  throw new Error(`Refusing to run: the test database (${where(testUrl)}) is the development database. Set TEST_DATABASE_URL to another database.`);
 }
 // config.js reads these when the app is loaded, so set them first (dotenv never overrides them).
 process.env.DATABASE_URL = testUrl;

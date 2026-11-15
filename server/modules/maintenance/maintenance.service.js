@@ -108,6 +108,24 @@ function canView(row, user) {
   return Number(row.submitted_by) === user.id;
 }
 
+/** A positive whole-number id from the URL, or null. */
+function toId(raw) {
+  const n = Number(raw);
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
+/**
+ * The request row, but only if this user may see it; otherwise 404, never 403,
+ * so ids cannot be probed (NFR-24). Every read and change goes through here.
+ * With a transaction `client` the row is also locked until the change is saved.
+ */
+async function loadVisible(rawId, user, client) {
+  const id = toId(rawId);
+  const row = id && (client ? await repo.findForUpdate(client, id) : await repo.findById(id));
+  if (!row || !canView(row, user)) throw notFound('We could not find that request.');
+  return row;
+}
+
 /** Same rule as canView, as a filter for the list. */
 function scopeFor(user) {
   if (can(user, 'maintenance.view_all')) return {};
@@ -147,8 +165,7 @@ async function listRequests(user, query = {}) {
 /** FR-21: one request with its history. Requests the user may not see answer 404, never 403 (NFR-24). */
 async function getRequest(user, rawId) {
   const id = Number(rawId);
-  const row = Number.isSafeInteger(id) && id > 0 ? await repo.findById(id) : null;
-  if (!row || !canView(row, user)) throw notFound('We could not find that request.');
+  const row = await loadVisible(id, user);
 
   const [updates, attachments] = await Promise.all([
     repo.listUpdates(id, { includeInternal: user.role !== 'resident' }),
@@ -199,8 +216,7 @@ async function transition(user, rawId, body) {
   v.throwIfInvalid();
 
   await db.withTransaction(async (client) => {
-    const row = Number.isSafeInteger(id) && id > 0 ? await repo.findForUpdate(client, id) : null;
-    if (!row || !canView(row, user)) throw notFound('We could not find that request.');
+    const row = await loadVisible(id, user, client);
     const move = sm.findTransition(row, user, to);
     if (!move) {
       throw conflict(`This request cannot be moved from "${statusText(row.status)}" to "${statusText(to)}" right now.`, 'TRANSITION_NOT_ALLOWED');
@@ -237,12 +253,9 @@ async function transition(user, rawId, body) {
 
 /** BR-19: a photo, only for people who may see its request (NFR-23). */
 async function getAttachment(user, rawRequestId, rawAttachmentId) {
-  const requestId = Number(rawRequestId);
-  const attachmentId = Number(rawAttachmentId);
-  const ok = (n) => Number.isSafeInteger(n) && n > 0;
-  const row = ok(requestId) ? await repo.findById(requestId) : null;
-  if (!row || !canView(row, user) || !ok(attachmentId)) throw notFound('We could not find that photo.');
-  const att = await repo.findAttachment(requestId, attachmentId);
+  const row = await loadVisible(rawRequestId, user);
+  const attachmentId = toId(rawAttachmentId);
+  const att = attachmentId && (await repo.findAttachment(row.id, attachmentId));
   const file = att && uploads.filePath(att.stored_name);
   if (!file) throw notFound('We could not find that photo.');
   return { file, mimeType: att.mime_type, name: att.original_name };
@@ -277,8 +290,7 @@ async function assign(user, rawId, body) {
   v.throwIfInvalid();
 
   await db.withTransaction(async (client) => {
-    const row = Number.isSafeInteger(id) && id > 0 ? await repo.findForUpdate(client, id) : null;
-    if (!row || !canView(row, user)) throw notFound('We could not find that request.');
+    const row = await loadVisible(id, user, client);
     if (!can(user, 'maintenance.assign')) throw forbidden('You cannot assign requests.');
     if (!sm.canAssign(row, user)) {
       throw conflict(`A request that is ${statusText(row.status)} can no longer be assigned.`, 'NOT_ASSIGNABLE');
@@ -316,8 +328,7 @@ async function addNote(user, rawId, body) {
   v.throwIfInvalid();
 
   await db.withTransaction(async (client) => {
-    const row = Number.isSafeInteger(id) && id > 0 ? await repo.findForUpdate(client, id) : null;
-    if (!row || !canView(row, user)) throw notFound('We could not find that request.');
+    const row = await loadVisible(id, user, client);
     if (!sm.canAddNote(row, user)) throw forbidden('You cannot add notes to this request.');
     await repo.insertUpdate(client, { requestId: id, authorId: user.id, kind: 'note', note, isInternal: internal });
     await repo.updateRequest(client, id, {}); // a note is activity: move it up in the lists
@@ -337,8 +348,7 @@ async function setPriority(user, rawId, body) {
   v.throwIfInvalid();
 
   await db.withTransaction(async (client) => {
-    const row = Number.isSafeInteger(id) && id > 0 ? await repo.findForUpdate(client, id) : null;
-    if (!row || !canView(row, user)) throw notFound('We could not find that request.');
+    const row = await loadVisible(id, user, client);
     if (!can(user, 'maintenance.review')) throw forbidden('You cannot change the priority of requests.');
     if (!sm.canSetPriority(row, user)) {
       throw conflict(`You cannot change the priority of a request that is ${statusText(row.status)}.`, 'PRIORITY_LOCKED');

@@ -10,6 +10,7 @@
  *       └─► rejected
  */
 const { can } = require('../../middleware/current-user');
+const { FINAL_STATUSES, NEEDS_ACTION } = require('./maintenance.constants');
 
 // BR-18: a resident may reopen a resolved request within this many days.
 const REOPEN_DAYS = 7;
@@ -59,17 +60,14 @@ function findTransition(request, user, to, now = new Date()) {
   return allowedTransitions(request, user, now).find((t) => t.to === to) || null;
 }
 
-// FR-19: a request can be (re)assigned until it is resolved or finished.
-const ASSIGNABLE = Object.freeze(['submitted', 'under_review', 'in_progress']);
-
-/** May this user assign or reassign this request to staff right now? (FR-19, Appendix B) */
+/** May this user assign or reassign this request to staff right now? Until it is resolved or finished. (FR-19, Appendix B) */
 function canAssign(request, user) {
-  return can(user, 'maintenance.assign') && ASSIGNABLE.includes(request.status);
+  return can(user, 'maintenance.assign') && NEEDS_ACTION.includes(request.status);
 }
 
 /** FR-20: progress notes from the admin, the assigned staff member or a reviewer, while the request is open. */
 function canAddNote(request, user) {
-  if (['closed', 'rejected', 'cancelled'].includes(request.status)) return false;
+  if (FINAL_STATUSES.includes(request.status)) return false;
   return isAdmin(user) || isAssignedStaff(request, user) || isReviewer(user);
 }
 
@@ -78,4 +76,4 @@ function canSetPriority(request, user) {
   return isReviewer(user) && ['under_review', 'in_progress'].includes(request.status);
 }
 
-module.exports = { REOPEN_DAYS, TRANSITIONS, ASSIGNABLE, allowedTransitions, findTransition, canAssign, canAddNote, canSetPriority };
+module.exports = { REOPEN_DAYS, TRANSITIONS, allowedTransitions, findTransition, canAssign, canAddNote, canSetPriority };

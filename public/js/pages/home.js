@@ -5,11 +5,9 @@
  */
 import { api } from '../api.js';
 import { $, el, replace } from '../dom.js';
+import { NEEDS_ACTION } from '../format.js';
 import { initLayout } from '../layout.js';
 import { animateIn, countUp, errorState } from '../ui.js';
-
-// Same value as the "Needs action" filter on the Requests page.
-const NEEDS_ACTION = 'submitted,under_review,in_progress';
 
 // [count from /maintenance/overview, label, filter for /manage/requests.html, highlight when > 0]
 const TILES = [

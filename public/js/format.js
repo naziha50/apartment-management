@@ -32,6 +32,9 @@ export const STATUS_LABELS = {
 // FR-18
 export const PRIORITY_LABELS = { high: 'High', medium: 'Medium', low: 'Low' };
 
+// Statuses where the office or staff still have to act; a list filter value (?status=…).
+export const NEEDS_ACTION = 'submitted,under_review,in_progress';
+
 export const LOCATION_LABELS = { unit: 'Inside the apartment', common_area: 'Common area' };
 
 export const categoryLabel = (c) => CATEGORY_LABELS[c] || c;
@@ -42,8 +45,10 @@ export const statusBadge = (s) => el('span', { class: `badge status-${s}`, text:
 export const priorityBadge = (p) =>
   el('span', { class: `badge prio-${p || 'unset'}`, text: p ? PRIORITY_LABELS[p] : 'Not set yet' });
 
-const DATE_TIME = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
-const DATE = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' });
+// All dates and times in the SRS are Bangladesh time (§2.6), wherever the viewer is.
+const TIME_ZONE = 'Asia/Dhaka';
+const DATE_TIME = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: TIME_ZONE });
+const DATE = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: TIME_ZONE });
 
 export const formatDateTime = (iso) => (iso ? DATE_TIME.format(new Date(iso)) : '—');
 export const formatDate = (iso) => (iso ? DATE.format(new Date(iso)) : '—');
