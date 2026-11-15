@@ -2,7 +2,7 @@
 /** Unit tests for the request status rules (BR-16, Appendix A). Run with `npm test`. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { allowedTransitions, findTransition, canAssign, canAddNote } = require('../server/modules/maintenance/state-machine');
+const { allowedTransitions, findTransition, canAssign, canAddNote, canSetPriority } = require('../server/modules/maintenance/state-machine');
 
 const admin = { id: 1, role: 'admin', permissions: [] };
 const reviewer = { id: 2, role: 'staff', permissions: ['maintenance.review'] };
@@ -75,6 +75,18 @@ test('notes come from the admin, the assignee or a reviewer, until the request i
   assert.equal(canAddNote(req({ status: 'resolved', assigned_to: 3 }), caretaker), true);
   for (const status of ['closed', 'rejected', 'cancelled']) {
     assert.equal(canAddNote(req({ status, assigned_to: 3 }), admin), false, status);
+  }
+});
+
+test('reviewers change the priority only after review and before it is resolved', () => {
+  for (const status of ['under_review', 'in_progress']) {
+    assert.equal(canSetPriority(req({ status, assigned_to: 3 }), admin), true, status);
+    assert.equal(canSetPriority(req({ status, assigned_to: 3 }), reviewer), true, status);
+    assert.equal(canSetPriority(req({ status, assigned_to: 3 }), caretaker), false, status); // even when assigned
+    assert.equal(canSetPriority(req({ status }), resident), false, status);
+  }
+  for (const status of ['submitted', 'resolved', 'closed', 'rejected', 'cancelled']) {
+    assert.equal(canSetPriority(req({ status }), admin), false, status);
   }
 });
 

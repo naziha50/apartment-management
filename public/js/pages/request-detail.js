@@ -116,17 +116,42 @@ function noteForm(r, user) {
   return el('details', { class: 'action' }, el('summary', { text: 'Add a note' }), form);
 }
 
+/** FR-18: change the priority after review. Only the other priorities are offered. */
+function priorityForm(r, user) {
+  const button = el('button', { type: 'submit', class: 'btn btn-primary', text: 'Change priority' });
+  const form = el(
+    'form',
+    { class: 'form', novalidate: true },
+    el('p', { class: 'hint', text: `Currently ${r.priority ? PRIORITY_LABELS[r.priority] : 'not set'}. The change is kept in the history.` }),
+    el(
+      'div',
+      { class: 'field' },
+      el('label', { for: 'priority-new', text: 'New priority' }),
+      el(
+        'select',
+        { id: 'priority-new', name: 'priority', required: true },
+        el('option', { value: '', text: 'Choose a priority' }),
+        ['high', 'medium', 'low'].filter((p) => p !== r.priority).map((p) => el('option', { value: p, text: PRIORITY_LABELS[p] })),
+      ),
+    ),
+    el('div', { class: 'form-actions' }, button),
+  );
+  onSubmit(form, button, user, `/maintenance/requests/${r.id}/priority`, () => ({}), (u) => `Priority is now ${PRIORITY_LABELS[u.priority].toLowerCase()}.`, 'patch');
+  return el('details', { class: 'action' }, el('summary', { text: 'Change priority' }), form);
+}
+
 /**
- * Posts a form, then redraws the page with the request the server sends back.
- * Field errors appear next to their fields; anything else at the top of the form.
+ * Sends a form (POST unless `method` says otherwise), then redraws the page
+ * with the request the server sends back. Field errors appear next to their
+ * fields; anything else at the top of the form.
  */
-function onSubmit(form, button, user, path, extra, message) {
+function onSubmit(form, button, user, path, extra, message, method = 'post') {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const body = { ...extra(), ...Object.fromEntries(new FormData(form)) };
     await withBusy(button, async () => {
       try {
-        const updated = await api.post(path, body);
+        const updated = await api[method](path, body);
         justSubmitted = false;
         render(updated, user);
         main.focus(); // the clicked button is gone; keep keyboard users on the page
@@ -210,7 +235,7 @@ function render(r, user) {
       el('div', {}, el('p', { class: 'muted', text: r.requestNumber }), el('h1', { text: r.title })),
       statusBadge(r.status),
     ),
-    r.allowed.transitions.length || r.allowed.assign || r.allowed.addNote
+    r.allowed.transitions.length || r.allowed.assign || r.allowed.addNote || r.allowed.setPriority
       ? el(
           'section',
           { class: 'card', 'aria-labelledby': 'actions-title' },
@@ -220,6 +245,7 @@ function render(r, user) {
             { class: 'actions' },
             r.allowed.assign ? assignForm(r, user) : null,
             r.allowed.transitions.map((t) => actionForm(r, user, t)),
+            r.allowed.setPriority ? priorityForm(r, user) : null,
             r.allowed.addNote ? noteForm(r, user) : null,
           ),
         )

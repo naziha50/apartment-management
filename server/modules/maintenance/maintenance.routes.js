@@ -16,6 +16,8 @@
  *   GET  /staff      staff that requests can be assigned to FR-19
  *   POST /requests/:id/notes  add a progress note           FR-20
  *                    body { note, internal? }
+ *   PATCH /requests/:id/priority  change the priority     FR-18
+ *                    body { priority }
  *
  * Routes only handle HTTP; every rule is checked in maintenance.service.js,
  * so no route can skip it (NFR-02).
@@ -58,6 +60,10 @@ router.post('/requests/:id/assign', async (req, res) => {
 
 router.post('/requests/:id/notes', async (req, res) => {
   res.status(201).json(await service.addNote(req.user, req.params.id, req.body));
+});
+
+router.patch('/requests/:id/priority', async (req, res) => {
+  res.json(await service.setPriority(req.user, req.params.id, req.body));
 });
 
 router.get('/staff', async (req, res) => {

@@ -177,6 +177,7 @@ async function getRequest(user, rawId) {
       transitions: sm.allowedTransitions(row, user),
       assign: sm.canAssign(row, user),
       addNote: sm.canAddNote(row, user),
+      setPriority: sm.canSetPriority(row, user),
     },
   };
 }
@@ -315,4 +316,38 @@ async function addNote(user, rawId, body) {
   return getRequest(user, id);
 }
 
-module.exports = { createRequest, myUnits, listRequests, getRequest, getAttachment, transition, staffList, assign, addNote, toDto };
+/* ---------------------------------------------------------- FR-18 priority */
+
+const priorityText = (p) => (p ? p[0].toUpperCase() + p.slice(1) : 'not set');
+
+/** FR-18: change the priority after review. The change is kept in the history. */
+async function setPriority(user, rawId, body) {
+  const id = Number(rawId);
+  const v = new Validator(body);
+  const priority = v.oneOf('priority', PRIORITIES, { label: 'Priority' });
+  v.throwIfInvalid();
+
+  await db.withTransaction(async (client) => {
+    const row = Number.isSafeInteger(id) && id > 0 ? await repo.findForUpdate(client, id) : null;
+    if (!row || !canView(row, user)) throw notFound('We could not find that request.');
+    if (!can(user, 'maintenance.review')) throw forbidden('You cannot change the priority of requests.');
+    if (!sm.canSetPriority(row, user)) {
+      throw conflict(`You cannot change the priority of a request that is ${statusText(row.status)}.`, 'PRIORITY_LOCKED');
+    }
+    if (row.priority === priority) return; // unchanged: nothing to record
+
+    await repo.updateRequest(client, id, { priority });
+    await repo.insertUpdate(client, {
+      requestId: id,
+      authorId: user.id,
+      kind: 'priority',
+      note: `Priority changed from ${priorityText(row.priority)} to ${priorityText(priority)}.`,
+    });
+  });
+  return getRequest(user, id);
+}
+
+module.exports = {
+  createRequest, myUnits, listRequests, getRequest, getAttachment,
+  transition, staffList, assign, addNote, setPriority, toDto,
+};

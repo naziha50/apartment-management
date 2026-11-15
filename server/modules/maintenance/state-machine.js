@@ -73,4 +73,9 @@ function canAddNote(request, user) {
   return isAdmin(user) || isAssignedStaff(request, user) || isReviewer(user);
 }
 
-module.exports = { REOPEN_DAYS, TRANSITIONS, ASSIGNABLE, allowedTransitions, findTransition, canAssign, canAddNote };
+/** FR-18: reviewers may change the priority after review, while work is still to be done. */
+function canSetPriority(request, user) {
+  return isReviewer(user) && ['under_review', 'in_progress'].includes(request.status);
+}
+
+module.exports = { REOPEN_DAYS, TRANSITIONS, ASSIGNABLE, allowedTransitions, findTransition, canAssign, canAddNote, canSetPriority };
