@@ -74,6 +74,7 @@ async function listRequests(buildingId, scope = {}, filters = {}, { limit = 20, 
   if (scope.assignedTo) add('r.assigned_to = ?', scope.assignedTo);
   if (filters.statuses?.length) add('r.status = ANY(?::request_status[])', filters.statuses);
   if (filters.category) add('r.category = ?', filters.category);
+  if (filters.unassigned) where.push('r.assigned_to IS NULL');
   if (filters.priority === 'unset') where.push('r.priority IS NULL');
   else if (filters.priority) add('r.priority = ?::request_priority', filters.priority);
   // % and _ typed by the user are matched literally.
@@ -179,7 +180,30 @@ async function findActiveStaff(client, buildingId, id) {
   return rows[0] || null;
 }
 
+/**
+ * FR-29: counts for the maintenance overview, all in one pass over the building's requests.
+ * "Needs action" means submitted, under review or in progress.
+ */
+async function overview(buildingId) {
+  const { rows } = await db.query(
+    `SELECT
+       count(*) FILTER (WHERE status = 'submitted')   AS submitted,
+       count(*) FILTER (WHERE status = 'under_review') AS under_review,
+       count(*) FILTER (WHERE status = 'in_progress')  AS in_progress,
+       count(*) FILTER (WHERE status = 'resolved')     AS resolved,
+       count(*) FILTER (WHERE status = 'closed')       AS closed,
+       count(*) FILTER (WHERE status IN ('submitted', 'under_review', 'in_progress') AND assigned_to IS NULL) AS unassigned,
+       count(*) FILTER (WHERE status IN ('submitted', 'under_review', 'in_progress') AND priority = 'high') AS high_open
+     FROM maintenance_requests
+     WHERE building_id = $1`,
+    [buildingId],
+  );
+  // count() comes back from PostgreSQL as text; the API sends numbers.
+  return Object.fromEntries(Object.entries(rows[0]).map(([k, v]) => [k, Number(v)]));
+}
+
 module.exports = {
+  overview,
   findForUpdate, updateRequest, activeStaff, findActiveStaff,
   activeUnitsOf, insertRequest, insertUpdate, findById, listRequests, listUpdates,
   insertAttachments, listAttachments, findAttachment,

@@ -20,7 +20,9 @@ const seesAll = (user) => user.role === 'admin' || user.permissions.includes('ma
 
 // "Open" = everything still being worked on, the most useful view for the office.
 const OPEN = 'submitted,under_review,in_progress,resolved';
-const FILTER_KEYS = ['status', 'priority', 'category', 'q'];
+// "Needs action" = the office or staff still have to do something (used by the home overview).
+const NEEDS_ACTION = 'submitted,under_review,in_progress';
+const FILTER_KEYS = ['status', 'priority', 'category', 'assigned', 'q'];
 
 /** The filter form; its field names match the API's query parameters. */
 function filterForm(params, onChange) {
@@ -39,9 +41,10 @@ function filterForm(params, onChange) {
     'form',
     { class: 'filters', role: 'search', 'aria-label': 'Filter requests' },
     el('div', { class: 'field' }, el('label', { for: 'f-q', text: 'Search' }), el('input', { id: 'f-q', name: 'q', type: 'search', maxlength: 100, placeholder: 'Title or MR number', value: params.get('q') || '' })),
-    select('status', 'Status', [['', 'Any status'], [OPEN, 'Open (not finished)'], ...Object.entries(STATUS_LABELS)]),
+    select('status', 'Status', [['', 'Any status'], [OPEN, 'Open (not finished)'], [NEEDS_ACTION, 'Needs action'], ...Object.entries(STATUS_LABELS)]),
     select('priority', 'Priority', [['', 'Any priority'], ...Object.entries(PRIORITY_LABELS), ['unset', 'Not set yet']]),
     select('category', 'Category', [['', 'Any category'], ...Object.entries(CATEGORY_LABELS)]),
+    select('assigned', 'Assigned', [['', 'Anyone'], ['none', 'Not assigned yet']]),
     el(
       'div',
       { class: 'form-actions' },
@@ -110,7 +113,7 @@ async function load(all) {
     }
     replace(
       card,
-      el('p', { class: 'list-summary muted small', role: 'status', text: `${data.total} request${data.total === 1 ? '' : 's'}${filtered ? ' match' : ''}` }),
+      el('p', { class: 'list-summary muted small', role: 'status', text: `${data.total} request${data.total === 1 ? '' : 's'}${filtered ? (data.total === 1 ? ' matches' : ' match') : ''}` }),
       table(data.items),
       pagination(data, (page) => go({ ...Object.fromEntries(params), page })),
     );

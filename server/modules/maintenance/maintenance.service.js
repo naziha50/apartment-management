@@ -127,6 +127,7 @@ function parseFilters(query = {}) {
     statuses,
     category: v.oneOf('category', CATEGORIES, { required: false, label: 'Category' }),
     priority: v.oneOf('priority', [...PRIORITIES, 'unset'], { required: false, label: 'Priority' }),
+    unassigned: v.oneOf('assigned', ['none'], { required: false, label: 'Assigned-to filter' }) === 'none', // ?assigned=none (FR-29 tile)
     q: typeof query.q === 'string' ? query.q.trim().slice(0, 100) || null : null,
   };
   v.throwIfInvalid('Some filters are not valid.');
@@ -247,6 +248,14 @@ async function getAttachment(user, rawRequestId, rawAttachmentId) {
   return { file, mimeType: att.mime_type, name: att.original_name };
 }
 
+/* --------------------------------------------------------- FR-29 overview */
+
+/** FR-29: request counts for the building. They cover every request, so only users who may see all of them get it. */
+async function overview(user) {
+  if (!can(user, 'maintenance.view_all')) throw forbidden('Only the admin and staff who see all requests can view the overview.');
+  return repo.overview(user.buildingId);
+}
+
 /* ------------------------------------------------------------ FR-19 assign */
 
 /** Staff the user may assign requests to. */
@@ -349,5 +358,5 @@ async function setPriority(user, rawId, body) {
 
 module.exports = {
   createRequest, myUnits, listRequests, getRequest, getAttachment,
-  transition, staffList, assign, addNote, setPriority, toDto,
+  transition, staffList, assign, addNote, setPriority, overview, toDto,
 };

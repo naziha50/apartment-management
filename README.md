@@ -36,7 +36,7 @@ building admin and staff review, assign, track and resolve them (SRS v1.3, §4.3
 **Sprint 3 – Find and follow up**
 - [x] Step 17: filters, search and paging on the request lists (FR-22)
 - [x] Step 18: change the priority after review (FR-18)
-- [ ] Step 19: maintenance overview for the admin (FR-29)
+- [x] Step 19: maintenance overview for the admin (FR-29)
 - [ ] Step 20: clean server shutdown + API integration tests (NFR-22)
 
 ## Frontend conventions
@@ -140,13 +140,14 @@ Errors always look like `{ "error": { "code": "...", "message": "...", "fields":
 | Method & path | Who | What it does |
 |---|---|---|
 | `POST /requests` | Residents | Submit a request (FR-16, FR-17). Body: `title` (3–120 chars), `description`, `category`, `location` (`unit` or `common_area`), and `unitId` only if the resident has more than one apartment. Send JSON, or `multipart/form-data` to add up to 3 `photos` (JPG/PNG/WEBP, 5 MB each, BR-19). Returns 201 with the new request (status `submitted`, number `MR-YYYY-NNNNN`). |
-| `GET /requests` | Everyone | Requests you may see, newest activity first, 20 per page (FR-21, FR-22): residents their own, staff those assigned to them, admins and staff with `maintenance.view_all` all of them. Optional filters: `status` (one or more, comma-separated), `category`, `priority` (`high`, `medium`, `low` or `unset`), `q` (searches the title and request number), `page`. Returns `{ items, page, pageSize, total }` |
-| `GET /requests/:id` | Everyone | One request with its `updates` (history), `attachments` (photos) and `allowed.transitions` (the status moves you may make now). Requests you may not see answer 404 |
+| `GET /requests` | Everyone | Requests you may see, newest activity first, 20 per page (FR-21, FR-22): residents their own, staff those assigned to them, admins and staff with `maintenance.view_all` all of them. Optional filters: `status` (one or more, comma-separated), `category`, `priority` (`high`, `medium`, `low` or `unset`), `q` (searches the title and request number), `assigned=none` (nobody assigned yet), `page`. Returns `{ items, page, pageSize, total }` |
+| `GET /requests/:id` | Everyone | One request with its `updates` (history), `attachments` (photos) and `allowed` (what you may do now: `transitions`, `assign`, `addNote`, `setPriority`). Requests you may not see answer 404 |
 | `GET /requests/:id/attachments/:attId` | Everyone | One photo, with the same access rule as its request |
 | `POST /requests/:id/transition` | Depends on the move | Change the status (FR-18, FR-20). Body: `to` plus `priority` when reviewing, `note` as the reason when rejecting or as the note when resolving / reopening. A move that is not allowed now answers 409 `TRANSITION_NOT_ALLOWED` |
 | `POST /requests/:id/assign` | Admin, staff with `maintenance.assign` | Assign or reassign to an active staff member (FR-19). Body: `staffId`. Allowed while the request is submitted, under review or in progress (otherwise 409 `NOT_ASSIGNABLE`). Each change is added to the history |
 | `POST /requests/:id/notes` | Admin, the assigned staff member, staff with `maintenance.review` | Add a progress note (FR-20). Body: `note`, and `internal: true` to keep it to staff and the admin. Not allowed once the request is closed, rejected or cancelled. Residents never receive internal notes |
 | `PATCH /requests/:id/priority` | Admin, staff with `maintenance.review` | Change the priority after review (FR-18). Body: `priority`. Allowed while the request is under review or in progress (otherwise 409 `PRIORITY_LOCKED`). Each change is added to the history |
+| `GET /overview` | Admin, staff with `maintenance.view_all` | Request counts for the home page (FR-29): `submitted`, `under_review`, `in_progress`, `resolved`, `closed`, `unassigned` and `high_open` (the last two count requests still needing action) |
 | `GET /staff` | Admin, staff with `maintenance.assign` | Active staff, for the "assign to" picker |
 | `GET /my-units` | Residents | The resident's active apartments, for the unit picker |
 

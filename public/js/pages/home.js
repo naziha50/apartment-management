@@ -1,10 +1,42 @@
 /**
  * Start page: explains who you are viewing as and what that role can do.
- * The maintenance links appear in the navigation as each feature is built.
+ * The admin and staff who see all requests also get the maintenance
+ * overview (FR-29): counts that link straight to the matching list.
  */
+import { api } from '../api.js';
 import { $, el, replace } from '../dom.js';
 import { initLayout } from '../layout.js';
-import { animateIn, errorState } from '../ui.js';
+import { animateIn, countUp, errorState } from '../ui.js';
+
+// Same value as the "Needs action" filter on the Requests page.
+const NEEDS_ACTION = 'submitted,under_review,in_progress';
+
+// [count from /maintenance/overview, label, filter for /manage/requests.html, highlight when > 0]
+const TILES = [
+  ['submitted', 'Waiting for review', '?status=submitted', false],
+  ['unassigned', 'Not assigned yet', `?status=${NEEDS_ACTION}&assigned=none`, false],
+  ['high_open', 'High priority, still open', `?status=${NEEDS_ACTION}&priority=high`, true],
+  ['in_progress', 'In progress', '?status=in_progress', false],
+  ['resolved', 'Waiting for the resident to confirm', '?status=resolved', false],
+];
+
+async function showOverview() {
+  const box = $('#overview');
+  box.hidden = false;
+  try {
+    const counts = await api.get('/maintenance/overview');
+    const tiles = TILES.map(([key, label, query, alert]) => {
+      const value = el('span', { class: 'stat__value', text: '0' });
+      const tile = el('a', { class: alert && counts[key] ? 'stat stat--alert' : 'stat', href: `/manage/requests.html${query}` }, value, el('span', { class: 'stat__label', text: label }));
+      countUp(value, counts[key]);
+      return tile;
+    });
+    replace(box, el('h2', { id: 'overview-title', text: 'Maintenance overview' }), el('div', { class: 'stats' }, tiles));
+    animateIn(box);
+  } catch (err) {
+    replace(box, errorState(err, showOverview));
+  }
+}
 
 const ROLE_TEXT = {
   admin: 'As the admin you can review, prioritise and assign every maintenance request.',
@@ -32,6 +64,7 @@ try {
       el('p', { text: ROLE_TEXT[user.role] }),
       extra.length ? el('p', { class: 'muted', text: `You may also ${extra.join(' and ')}.` }) : null,
     );
+    if (user.role === 'admin' || user.permissions.includes('maintenance.view_all')) showOverview();
   }
   animateIn(card);
 } catch (err) {

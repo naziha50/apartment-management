@@ -66,6 +66,10 @@ router.patch('/requests/:id/priority', async (req, res) => {
   res.json(await service.setPriority(req.user, req.params.id, req.body));
 });
 
+router.get('/overview', async (req, res) => {
+  res.json(await service.overview(req.user));
+});
+
 router.get('/staff', async (req, res) => {
   res.json({ items: await service.staffList(req.user) });
 });
