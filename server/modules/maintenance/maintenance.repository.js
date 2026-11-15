@@ -56,4 +56,48 @@ async function findById(id, client = db) {
   return rows[0] || null;
 }
 
-module.exports = { activeUnitsOf, insertRequest, insertUpdate, findById };
+/**
+ * Requests in a building, newest activity first (FR-21).
+ * `scope` narrows it: { submittedBy } for residents, { assignedTo } for staff.
+ * shortcut: capped at 200 rows with no paging; add paging with the filters of FR-22.
+ */
+async function listRequests(buildingId, scope = {}) {
+  const params = [buildingId];
+  const where = ['r.building_id = $1'];
+  if (scope.submittedBy) {
+    params.push(scope.submittedBy);
+    where.push(`r.submitted_by = $${params.length}`);
+  }
+  if (scope.assignedTo) {
+    params.push(scope.assignedTo);
+    where.push(`r.assigned_to = $${params.length}`);
+  }
+  const { rows } = await db.query(
+    `SELECT r.*, u.unit_number, s.full_name AS submitted_by_name, a.full_name AS assigned_to_name
+       FROM maintenance_requests r
+       LEFT JOIN units u ON u.id = r.unit_id
+       LEFT JOIN users s ON s.id = r.submitted_by
+       LEFT JOIN users a ON a.id = r.assigned_to
+      WHERE ${where.join(' AND ')}
+      ORDER BY r.updated_at DESC, r.id DESC
+      LIMIT 200`,
+    params,
+  );
+  return rows;
+}
+
+/** A request's history, oldest first (FR-20). Residents never get internal notes. */
+async function listUpdates(requestId, { includeInternal }) {
+  const { rows } = await db.query(
+    `SELECT ru.id, ru.kind, ru.from_status, ru.to_status, ru.note, ru.is_internal, ru.created_at,
+            COALESCE(a.full_name, 'System') AS author_name
+       FROM request_updates ru
+       LEFT JOIN users a ON a.id = ru.author_id
+      WHERE ru.request_id = $1 AND ($2 OR NOT ru.is_internal)
+      ORDER BY ru.created_at, ru.id`,
+    [requestId, includeInternal],
+  );
+  return rows;
+}
+
+module.exports = { activeUnitsOf, insertRequest, insertUpdate, findById, listRequests, listUpdates };

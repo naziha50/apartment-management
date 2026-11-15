@@ -20,6 +20,7 @@ const NAV = {
   none: [{ key: 'home', label: 'Home', href: '/' }],
   resident: [
     { key: 'home', label: 'Home', href: '/' },
+    { key: 'myRequests', label: 'My requests', href: '/resident/requests.html' },
     { key: 'newRequest', label: 'Report a problem', href: '/resident/new-request.html' },
   ],
   staff: [{ key: 'home', label: 'Home', href: '/' }],

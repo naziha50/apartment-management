@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My requests · Green Valley Apartments</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <script src="/vendor/motion.js" defer></script>
+  <script type="module" src="/js/pages/my-requests.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header" id="site-header"></header>
+
+  <main class="page" id="main" tabindex="-1">
+    <div class="page-head">
+      <h1>My requests</h1>
+      <a class="btn btn-primary" href="/resident/new-request.html">Report a problem</a>
+    </div>
+
+    <!-- FR-21: every request the resident submitted, with its current status. -->
+    <section class="card card--flush" id="content" aria-live="polite">
+      <p class="muted empty">Loading…</p>
+    </section>
+  </main>
+</body>
+</html>

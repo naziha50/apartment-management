@@ -2,13 +2,15 @@
 /**
  * Maintenance business rules (SRS §4.3).
  *
- * So far: FR-16 submit a request, FR-17 attach the resident and unit automatically.
+ * So far: FR-16 submit a request, FR-17 attach the resident and unit automatically,
+ * FR-21 track requests (list + detail with history).
  */
 const db = require('../../db/pool');
 const repo = require('./maintenance.repository');
 const { CATEGORIES, LOCATIONS } = require('./maintenance.constants');
 const { Validator } = require('../../lib/validate');
-const { forbidden } = require('../../lib/errors');
+const { forbidden, notFound } = require('../../lib/errors');
+const { can } = require('../../middleware/current-user');
 
 /** Turns a database row into the JSON the API returns (camelCase, numbers as numbers). */
 function toDto(r) {
@@ -83,4 +85,49 @@ async function createRequest(user, body) {
   return toDto(await repo.findById(id));
 }
 
-module.exports = { createRequest, myUnits, toDto };
+/* ------------------------------------------------------------- FR-21 track */
+
+/** Who may open a request: its resident, the staff member it is assigned to, and admins / staff with view_all. */
+function canView(row, user) {
+  if (String(row.building_id) !== String(user.buildingId)) return false;
+  if (can(user, 'maintenance.view_all')) return true;
+  if (user.role === 'staff') return Number(row.assigned_to) === user.id;
+  return Number(row.submitted_by) === user.id;
+}
+
+/** Same rule as canView, as a filter for the list. */
+function scopeFor(user) {
+  if (can(user, 'maintenance.view_all')) return {};
+  if (user.role === 'staff') return { assignedTo: user.id };
+  return { submittedBy: user.id };
+}
+
+/** FR-21: the requests the user may see, most recently updated first. */
+async function listRequests(user) {
+  const rows = await repo.listRequests(user.buildingId, scopeFor(user));
+  return rows.map(toDto);
+}
+
+/** FR-21: one request with its history. Requests the user may not see answer 404, never 403 (NFR-24). */
+async function getRequest(user, rawId) {
+  const id = Number(rawId);
+  const row = Number.isSafeInteger(id) && id > 0 ? await repo.findById(id) : null;
+  if (!row || !canView(row, user)) throw notFound('We could not find that request.');
+
+  const updates = await repo.listUpdates(id, { includeInternal: user.role !== 'resident' });
+  return {
+    ...toDto(row),
+    updates: updates.map((u) => ({
+      id: Number(u.id),
+      kind: u.kind,
+      fromStatus: u.from_status,
+      toStatus: u.to_status,
+      note: u.note,
+      isInternal: u.is_internal,
+      author: u.author_name,
+      createdAt: u.created_at,
+    })),
+  };
+}
+
+module.exports = { createRequest, myUnits, listRequests, getRequest, toDto };

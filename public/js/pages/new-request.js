@@ -6,26 +6,10 @@ import { api } from '../api.js';
 import { $, el, replace } from '../dom.js';
 import { CATEGORY_LABELS } from '../format.js';
 import { initLayout } from '../layout.js';
-import { animateIn, emptyState, errorState, showFieldErrors, toast, withBusy } from '../ui.js';
+import { animateIn, emptyState, errorState, showFieldErrors, withBusy } from '../ui.js';
 
 const card = $('#content');
 const form = $('#request-form');
-
-// Until the request detail page exists (Step 10), confirm with the request number here.
-function showSuccess(created) {
-  replace(
-    card,
-    el('h2', { text: 'Request submitted' }),
-    el('p', {}, 'Your request number is ', el('strong', { text: created.requestNumber }), '. The building office will review it soon.'),
-    el(
-      'div',
-      { class: 'form-actions' },
-      el('a', { class: 'btn btn-primary', href: '/resident/new-request.html', text: 'Report another problem' }),
-      el('a', { class: 'btn btn-secondary', href: '/', text: 'Back to home' }),
-    ),
-  );
-  animateIn(card);
-}
 
 try {
   const user = await initLayout({ active: 'newRequest' });
@@ -60,8 +44,7 @@ try {
       await withBusy(form.querySelector('button[type="submit"]'), async () => {
         try {
           const created = await api.post('/maintenance/requests', body);
-          toast(`Request ${created.requestNumber} submitted.`, 'ok');
-          showSuccess(created);
+          location.href = `/request.html?id=${created.id}&new=1`;
         } catch (err) {
           showFieldErrors(form, err.fields, err.message);
         }
