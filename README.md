@@ -9,7 +9,7 @@ building admin and staff review, assign, track and resolve them (SRS v1.3, §4.3
 
 ## Status
 
-🚧 Work in progress — Sprint 3 (find and follow up).
+🚧 Work in progress — Sprint 3 (find and follow up) is done; the next sprint is not planned yet.
 
 **Sprint 0 – Setup** ✅
 - [x] Step 1: Node.js project + Express server with a health check
@@ -33,11 +33,11 @@ building admin and staff review, assign, track and resolve them (SRS v1.3, §4.3
 - [x] Step 15: assign requests to staff (FR-19)
 - [x] Step 16: progress notes, including internal notes (FR-20)
 
-**Sprint 3 – Find and follow up**
+**Sprint 3 – Find and follow up** ✅
 - [x] Step 17: filters, search and paging on the request lists (FR-22)
 - [x] Step 18: change the priority after review (FR-18)
 - [x] Step 19: maintenance overview for the admin (FR-29)
-- [ ] Step 20: clean server shutdown + API integration tests (NFR-22)
+- [x] Step 20: clean server shutdown + API integration tests (NFR-22)
 
 ## Frontend conventions
 
@@ -201,8 +201,24 @@ Use `npm run dev` while coding: it restarts the server whenever a file changes.
 npm test
 ```
 
-Runs every `*.test.js` file with Node's built-in test runner (no extra packages). So far it
-covers the status rules in `tests/state-machine.test.js`.
+Runs every test file with Node's built-in test runner (no extra packages):
+
+| File | What it checks |
+|---|---|
+| `tests/state-machine.test.js` | The rules on their own: who may change the status, assign, add notes or change the priority |
+| `tests/api.test.mjs` | The real API over HTTP: submitting, who can see what, a request's whole life from review to closed, internal notes, filters, the overview and photo uploads |
+
+The API tests use a **separate test database**: `DATABASE_URL` with `_test` added to the name
+(e.g. `apartment_maintenance_test`), or `TEST_DATABASE_URL` if you set it. It is created if
+needed and **wiped and re-seeded on every run**, so your development data is never touched.
+Uploaded test photos go to a temporary folder that is deleted afterwards. If PostgreSQL is
+not running, the API tests are skipped with the reason shown and the rule tests still run.
+
+## Stopping the server
+
+Press Ctrl+C. Requests that are already running get up to 5 seconds to finish, then every
+connection is closed (browsers keep spare connections open, which used to make the server
+hang), the database connections are closed, and the server exits.
 
 ## Project layout
 
