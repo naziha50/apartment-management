@@ -100,6 +100,22 @@ function assignForm(r, user) {
   return details;
 }
 
+/** FR-20: a progress note. Internal notes are kept from the resident. */
+function noteForm(r, user) {
+  const internal = el('input', { type: 'checkbox', id: 'note-internal' });
+  const button = el('button', { type: 'submit', class: 'btn btn-primary', text: 'Add note' });
+  const form = el(
+    'form',
+    { class: 'form', novalidate: true },
+    el('p', { class: 'hint', text: 'Tell the resident how the work is going, or leave an internal note for staff.' }),
+    el('div', { class: 'field' }, el('label', { for: 'note-text', text: 'Note' }), el('textarea', { id: 'note-text', name: 'note', maxlength: 2000, required: true })),
+    el('label', { class: 'choice' }, internal, ' Internal note (only staff and the admin can see it)'),
+    el('div', { class: 'form-actions' }, button),
+  );
+  onSubmit(form, button, user, `/maintenance/requests/${r.id}/notes`, () => ({ internal: internal.checked }), () => (internal.checked ? 'Internal note added.' : 'Note added.'));
+  return el('details', { class: 'action' }, el('summary', { text: 'Add a note' }), form);
+}
+
 /**
  * Posts a form, then redraws the page with the request the server sends back.
  * Field errors appear next to their fields; anything else at the top of the form.
@@ -131,7 +147,7 @@ function describe(u) {
   }
   if (u.kind === 'priority') return 'Priority changed';
   if (u.kind === 'assignment') return 'Staff assignment'; // the note says who
-  return 'Note added';
+  return u.isInternal ? 'Internal note (staff only)' : 'Note added';
 }
 
 /** A thumbnail that opens the full photo. The image is loaded through the API (see api.blob). */
@@ -178,7 +194,6 @@ function render(r, user) {
         { class: 'muted small' },
         `${u.author} · `,
         el('time', { datetime: u.createdAt, text: formatDateTime(u.createdAt) }),
-        u.isInternal ? ' · Internal note' : null,
       ),
     ),
   );
@@ -195,12 +210,18 @@ function render(r, user) {
       el('div', {}, el('p', { class: 'muted', text: r.requestNumber }), el('h1', { text: r.title })),
       statusBadge(r.status),
     ),
-    r.allowed.transitions.length || r.allowed.assign
+    r.allowed.transitions.length || r.allowed.assign || r.allowed.addNote
       ? el(
           'section',
           { class: 'card', 'aria-labelledby': 'actions-title' },
           el('h2', { id: 'actions-title', text: 'Actions' }),
-          el('div', { class: 'actions' }, r.allowed.assign ? assignForm(r, user) : null, r.allowed.transitions.map((t) => actionForm(r, user, t))),
+          el(
+            'div',
+            { class: 'actions' },
+            r.allowed.assign ? assignForm(r, user) : null,
+            r.allowed.transitions.map((t) => actionForm(r, user, t)),
+            r.allowed.addNote ? noteForm(r, user) : null,
+          ),
         )
       : null,
     el(

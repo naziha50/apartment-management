@@ -139,13 +139,13 @@ async function findForUpdate(client, id) {
 // Columns the service may change; anything else is refused.
 const UPDATABLE = ['status', 'priority', 'assigned_to', 'reviewed_at', 'rejection_reason', 'resolution_note', 'resolved_at', 'closed_at'];
 
-/** Changes some columns of a request and stamps updated_at. */
+/** Changes some columns of a request (none is fine) and stamps updated_at. */
 async function updateRequest(client, id, fields) {
   const keys = Object.keys(fields);
   if (keys.some((k) => !UPDATABLE.includes(k))) throw new Error(`updateRequest: column not allowed in ${keys}`);
-  const sets = keys.map((k, i) => `${k} = $${i + 2}`);
+  const sets = [...keys.map((k, i) => `${k} = $${i + 2}`), 'updated_at = now()'];
   await client.query(
-    `UPDATE maintenance_requests SET ${sets.join(', ')}, updated_at = now() WHERE id = $1`,
+    `UPDATE maintenance_requests SET ${sets.join(', ')} WHERE id = $1`,
     [id, ...keys.map((k) => fields[k])],
   );
 }

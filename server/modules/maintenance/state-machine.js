@@ -67,4 +67,10 @@ function canAssign(request, user) {
   return can(user, 'maintenance.assign') && ASSIGNABLE.includes(request.status);
 }
 
-module.exports = { REOPEN_DAYS, TRANSITIONS, ASSIGNABLE, allowedTransitions, findTransition, canAssign };
+/** FR-20: progress notes from the admin, the assigned staff member or a reviewer, while the request is open. */
+function canAddNote(request, user) {
+  if (['closed', 'rejected', 'cancelled'].includes(request.status)) return false;
+  return isAdmin(user) || isAssignedStaff(request, user) || isReviewer(user);
+}
+
+module.exports = { REOPEN_DAYS, TRANSITIONS, ASSIGNABLE, allowedTransitions, findTransition, canAssign, canAddNote };

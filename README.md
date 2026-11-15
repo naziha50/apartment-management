@@ -9,7 +9,7 @@ building admin and staff review, assign, track and resolve them (SRS v1.3, §4.3
 
 ## Status
 
-🚧 Work in progress — Sprint 2 (handle requests).
+🚧 Work in progress — Sprint 2 (handle requests) is done; the next sprint is not planned yet.
 
 **Sprint 0 – Setup** ✅
 - [x] Step 1: Node.js project + Express server with a health check
@@ -26,12 +26,12 @@ building admin and staff review, assign, track and resolve them (SRS v1.3, §4.3
 - [x] Step 10: my requests list and request detail (FR-21)
 - [x] Step 11: photo attachments (BR-19)
 
-**Sprint 2 – Handle requests**
+**Sprint 2 – Handle requests** ✅
 - [x] Step 12: status rules (BR-16, Appendix A) + status-change API (FR-18, FR-20)
 - [x] Step 13: "Manage requests" list for admin and staff
 - [x] Step 14: action buttons on the request page (only the moves the server allows)
 - [x] Step 15: assign requests to staff (FR-19)
-- [ ] Step 16: progress notes, including internal notes (FR-20)
+- [x] Step 16: progress notes, including internal notes (FR-20)
 
 ## Frontend conventions
 
@@ -139,6 +139,7 @@ Errors always look like `{ "error": { "code": "...", "message": "...", "fields":
 | `GET /requests/:id/attachments/:attId` | Everyone | One photo, with the same access rule as its request |
 | `POST /requests/:id/transition` | Depends on the move | Change the status (FR-18, FR-20). Body: `to` plus `priority` when reviewing, `note` as the reason when rejecting or as the note when resolving / reopening. A move that is not allowed now answers 409 `TRANSITION_NOT_ALLOWED` |
 | `POST /requests/:id/assign` | Admin, staff with `maintenance.assign` | Assign or reassign to an active staff member (FR-19). Body: `staffId`. Allowed while the request is submitted, under review or in progress (otherwise 409 `NOT_ASSIGNABLE`). Each change is added to the history |
+| `POST /requests/:id/notes` | Admin, the assigned staff member, staff with `maintenance.review` | Add a progress note (FR-20). Body: `note`, and `internal: true` to keep it to staff and the admin. Not allowed once the request is closed, rejected or cancelled. Residents never receive internal notes |
 | `GET /staff` | Admin, staff with `maintenance.assign` | Active staff, for the "assign to" picker |
 | `GET /my-units` | Residents | The resident's active apartments, for the unit picker |
 

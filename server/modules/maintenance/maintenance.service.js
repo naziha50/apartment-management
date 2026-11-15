@@ -5,7 +5,7 @@
  * So far: FR-16 submit a request, FR-17 attach the resident and unit automatically,
  * FR-21 track requests (list + detail with history), BR-19 photos,
  * FR-18 / FR-20 status changes following the rules in state-machine.js (BR-16),
- * FR-19 assigning requests to staff.
+ * FR-19 assigning requests to staff, FR-20 progress notes (internal ones hidden from residents).
  */
 const db = require('../../db/pool');
 const repo = require('./maintenance.repository');
@@ -151,7 +151,11 @@ async function getRequest(user, rawId) {
       createdAt: u.created_at,
     })),
     // The page shows only the moves the server allows (FR-20); they are checked again when posted.
-    allowed: { transitions: sm.allowedTransitions(row, user), assign: sm.canAssign(row, user) },
+    allowed: {
+      transitions: sm.allowedTransitions(row, user),
+      assign: sm.canAssign(row, user),
+      addNote: sm.canAddNote(row, user),
+    },
   };
 }
 
@@ -266,4 +270,27 @@ async function assign(user, rawId, body) {
   return getRequest(user, id);
 }
 
-module.exports = { createRequest, myUnits, listRequests, getRequest, getAttachment, transition, staffList, assign, toDto };
+/* ------------------------------------------------------------- FR-20 notes */
+
+/**
+ * FR-20: a progress note. `internal: true` keeps it to staff and the admin;
+ * residents never receive internal notes (see listUpdates).
+ */
+async function addNote(user, rawId, body) {
+  const id = Number(rawId);
+  const v = new Validator(body);
+  const note = v.text('note', { max: 2000, label: 'Note' });
+  const internal = body?.internal === true || body?.internal === 'true';
+  v.throwIfInvalid();
+
+  await db.withTransaction(async (client) => {
+    const row = Number.isSafeInteger(id) && id > 0 ? await repo.findForUpdate(client, id) : null;
+    if (!row || !canView(row, user)) throw notFound('We could not find that request.');
+    if (!sm.canAddNote(row, user)) throw forbidden('You cannot add notes to this request.');
+    await repo.insertUpdate(client, { requestId: id, authorId: user.id, kind: 'note', note, isInternal: internal });
+    await repo.updateRequest(client, id, {}); // a note is activity: move it up in the lists
+  });
+  return getRequest(user, id);
+}
+
+module.exports = { createRequest, myUnits, listRequests, getRequest, getAttachment, transition, staffList, assign, addNote, toDto };

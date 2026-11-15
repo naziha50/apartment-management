@@ -2,7 +2,7 @@
 /** Unit tests for the request status rules (BR-16, Appendix A). Run with `npm test`. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { allowedTransitions, findTransition, canAssign } = require('../server/modules/maintenance/state-machine');
+const { allowedTransitions, findTransition, canAssign, canAddNote } = require('../server/modules/maintenance/state-machine');
 
 const admin = { id: 1, role: 'admin', permissions: [] };
 const reviewer = { id: 2, role: 'staff', permissions: ['maintenance.review'] };
@@ -62,6 +62,19 @@ test('only the admin or staff with maintenance.assign can assign, while the requ
   }
   for (const status of ['resolved', 'closed', 'rejected', 'cancelled']) {
     assert.equal(canAssign(req({ status }), admin), false, status);
+  }
+});
+
+test('notes come from the admin, the assignee or a reviewer, until the request is finished', () => {
+  const r = req({ status: 'in_progress', assigned_to: 3 });
+  assert.equal(canAddNote(r, admin), true);
+  assert.equal(canAddNote(r, caretaker), true); // assigned
+  assert.equal(canAddNote(r, reviewer), true);
+  assert.equal(canAddNote(r, { ...caretaker, id: 9 }), false); // other staff
+  assert.equal(canAddNote(r, resident), false);
+  assert.equal(canAddNote(req({ status: 'resolved', assigned_to: 3 }), caretaker), true);
+  for (const status of ['closed', 'rejected', 'cancelled']) {
+    assert.equal(canAddNote(req({ status, assigned_to: 3 }), admin), false, status);
   }
 });
 
