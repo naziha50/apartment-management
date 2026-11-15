@@ -24,7 +24,7 @@ building admin and staff review, assign, track and resolve them (SRS v1.3, §4.3
 - [x] Step 8: submit-request API (FR-16, FR-17)
 - [x] Step 9: "Report a problem" page
 - [x] Step 10: my requests list and request detail (FR-21)
-- [ ] Step 11: photo attachments (BR-19)
+- [x] Step 11: photo attachments (BR-19)
 
 ## Frontend conventions
 
@@ -114,6 +114,7 @@ next numbered file — never edit one that is already committed. See
 |---|---|---|
 | `001_create_users_and_units.sql` | `buildings`, `users`, `staff_permissions`, `units`, `occupancies` | Who lives where and who handles requests |
 | `002_create_maintenance_requests.sql` | `maintenance_requests`, `request_updates` | Requests (number `MR-YYYY-NNNNN`, status, priority, assignee) and their full history |
+| `003_create_request_attachments.sql` | `request_attachments` | Photo details (BR-19). The files themselves are saved in `UPLOAD_DIR` (default `storage/uploads/`, git-ignored) under random names |
 
 A request moves through the statuses in SRS BR-16 / Appendix A:
 `submitted → under_review → in_progress → resolved → closed`, or ends as `rejected` or `cancelled`.
@@ -125,8 +126,13 @@ Errors always look like `{ "error": { "code": "...", "message": "...", "fields":
 
 | Method & path | Who | What it does |
 |---|---|---|
-| `POST /requests` | Residents | Submit a request (FR-16, FR-17). Body: `title` (3–120 chars), `description`, `category`, `location` (`unit` or `common_area`), and `unitId` only if the resident has more than one apartment. Returns 201 with the new request (status `submitted`, number `MR-YYYY-NNNNN`). |
+| `POST /requests` | Residents | Submit a request (FR-16, FR-17). Body: `title` (3–120 chars), `description`, `category`, `location` (`unit` or `common_area`), and `unitId` only if the resident has more than one apartment. Send JSON, or `multipart/form-data` to add up to 3 `photos` (JPG/PNG/WEBP, 5 MB each, BR-19). Returns 201 with the new request (status `submitted`, number `MR-YYYY-NNNNN`). |
+| `GET /requests` | Everyone | Requests you may see, newest activity first (FR-21): residents their own, staff those assigned to them, admins and staff with `maintenance.view_all` all of them |
+| `GET /requests/:id` | Everyone | One request with its `updates` (history) and `attachments` (photos). Requests you may not see answer 404 |
+| `GET /requests/:id/attachments/:attId` | Everyone | One photo, with the same access rule as its request |
 | `GET /my-units` | Residents | The resident's active apartments, for the unit picker |
+
+Photos are checked by their content, not their name: a file renamed to `.jpg` is rejected.
 
 Categories: `plumbing`, `electrical`, `lift`, `generator`, `water_supply`, `gas`, `cleaning`,
 `security`, `common_area`, `other`.
@@ -137,6 +143,11 @@ Example (as Tanvir, user id 5):
 curl -X POST http://localhost:3000/api/v1/maintenance/requests \
   -H "Content-Type: application/json" -H "X-User-Id: 5" \
   -d '{"title":"Kitchen tap leaking","description":"Drips all night","category":"plumbing","location":"unit"}'
+
+# with a photo
+curl -X POST http://localhost:3000/api/v1/maintenance/requests -H "X-User-Id: 5" \
+  -F "title=Kitchen tap leaking" -F "description=Drips all night" \
+  -F category=plumbing -F location=unit -F "photos=@tap.jpg"
 ```
 
 ## Run it

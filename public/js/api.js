@@ -37,11 +37,12 @@ async function request(method, path, body) {
   const headers = { Accept: 'application/json' };
   const userId = getViewingAs();
   if (userId) headers['X-User-Id'] = userId;
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const isForm = body instanceof FormData; // the browser sets the multipart Content-Type itself
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
 
   let res;
   try {
-    res = await fetch(BASE + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    res = await fetch(BASE + path, { method, headers, body: body === undefined || isForm ? body : JSON.stringify(body) });
   } catch {
     throw new ApiError(0, { error: { code: 'NETWORK', message: 'You appear to be offline. Check your connection and try again.' } });
   }
@@ -50,8 +51,23 @@ async function request(method, path, body) {
   return data;
 }
 
+/**
+ * Downloads a file (e.g. a request photo) as a Blob. A plain <img src> cannot
+ * send the X-User-Id header, so photos are fetched here and shown from a blob: URL.
+ * shortcut: needed only while "Viewing as" stands in for login; with a session cookie, <img src> works directly.
+ */
+async function blob(url) {
+  const headers = {};
+  const userId = getViewingAs();
+  if (userId) headers['X-User-Id'] = userId;
+  const res = await fetch(url, { headers });
+  if (!res.ok) throw new ApiError(res.status, await res.json().catch(() => null));
+  return res.blob();
+}
+
 export const api = {
   get: (path) => request('GET', path),
   post: (path, body) => request('POST', path, body ?? {}),
   patch: (path, body) => request('PATCH', path, body),
+  blob,
 };

@@ -3,10 +3,11 @@
  * Maintenance business rules (SRS §4.3).
  *
  * So far: FR-16 submit a request, FR-17 attach the resident and unit automatically,
- * FR-21 track requests (list + detail with history).
+ * FR-21 track requests (list + detail with history), BR-19 photos.
  */
 const db = require('../../db/pool');
 const repo = require('./maintenance.repository');
+const uploads = require('./uploads');
 const { CATEGORIES, LOCATIONS } = require('./maintenance.constants');
 const { Validator } = require('../../lib/validate');
 const { forbidden, notFound } = require('../../lib/errors');
@@ -40,9 +41,9 @@ async function myUnits(user) {
 /**
  * FR-16 / FR-17: a resident submits a request.
  * The resident and submission time always come from the server, never from the form,
- * so they cannot be faked or changed afterwards.
+ * so they cannot be faked or changed afterwards. BR-19: up to 3 photos may come with it.
  */
-async function createRequest(user, body) {
+async function createRequest(user, body, files = []) {
   if (user.role !== 'resident') throw forbidden('Only residents can submit maintenance requests.');
 
   const v = new Validator(body);
@@ -66,21 +67,30 @@ async function createRequest(user, body) {
     }
   }
   v.throwIfInvalid();
+  const photos = uploads.inspectFiles(files); // all photos checked before anything is saved
 
-  // The request and its first history entry are saved together or not at all (NFR-14).
-  const id = await db.withTransaction(async (client) => {
-    const newId = await repo.insertRequest(client, {
-      buildingId: user.buildingId,
-      title,
-      description,
-      category,
-      location,
-      unitId,
-      submittedBy: user.id,
+  // The request, its first history entry and its photos are saved together or not at all (NFR-14).
+  const saved = await uploads.saveFiles(photos);
+  let id;
+  try {
+    id = await db.withTransaction(async (client) => {
+      const newId = await repo.insertRequest(client, {
+        buildingId: user.buildingId,
+        title,
+        description,
+        category,
+        location,
+        unitId,
+        submittedBy: user.id,
+      });
+      await repo.insertUpdate(client, { requestId: newId, authorId: user.id, kind: 'status_change', toStatus: 'submitted' });
+      await repo.insertAttachments(client, { buildingId: user.buildingId, requestId: newId, uploadedBy: user.id }, saved);
+      return newId;
     });
-    await repo.insertUpdate(client, { requestId: newId, authorId: user.id, kind: 'status_change', toStatus: 'submitted' });
-    return newId;
-  });
+  } catch (err) {
+    await uploads.removeFiles(saved); // no orphan files on disk
+    throw err;
+  }
 
   return toDto(await repo.findById(id));
 }
@@ -114,9 +124,19 @@ async function getRequest(user, rawId) {
   const row = Number.isSafeInteger(id) && id > 0 ? await repo.findById(id) : null;
   if (!row || !canView(row, user)) throw notFound('We could not find that request.');
 
-  const updates = await repo.listUpdates(id, { includeInternal: user.role !== 'resident' });
+  const [updates, attachments] = await Promise.all([
+    repo.listUpdates(id, { includeInternal: user.role !== 'resident' }),
+    repo.listAttachments(id),
+  ]);
   return {
     ...toDto(row),
+    attachments: attachments.map((a) => ({
+      id: Number(a.id),
+      name: a.original_name,
+      mimeType: a.mime_type,
+      sizeBytes: a.size_bytes,
+      url: `/api/v1/maintenance/requests/${id}/attachments/${a.id}`,
+    })),
     updates: updates.map((u) => ({
       id: Number(u.id),
       kind: u.kind,
@@ -130,4 +150,17 @@ async function getRequest(user, rawId) {
   };
 }
 
-module.exports = { createRequest, myUnits, listRequests, getRequest, toDto };
+/** BR-19: a photo, only for people who may see its request (NFR-23). */
+async function getAttachment(user, rawRequestId, rawAttachmentId) {
+  const requestId = Number(rawRequestId);
+  const attachmentId = Number(rawAttachmentId);
+  const ok = (n) => Number.isSafeInteger(n) && n > 0;
+  const row = ok(requestId) ? await repo.findById(requestId) : null;
+  if (!row || !canView(row, user) || !ok(attachmentId)) throw notFound('We could not find that photo.');
+  const att = await repo.findAttachment(requestId, attachmentId);
+  const file = att && uploads.filePath(att.stored_name);
+  if (!file) throw notFound('We could not find that photo.');
+  return { file, mimeType: att.mime_type, name: att.original_name };
+}
+
+module.exports = { createRequest, myUnits, listRequests, getRequest, getAttachment, toDto };

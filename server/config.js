@@ -16,4 +16,10 @@ module.exports = Object.freeze({
   port: int('PORT', 3000),
   databaseUrl: process.env.DATABASE_URL || 'postgres://localhost:5432/apartment_maintenance',
   timezone: 'Asia/Dhaka', // all dates and times in the SRS are Bangladesh time (§2.6)
+  // BR-19: request photos are kept on disk, outside /public.
+  uploads: {
+    dir: path.resolve(__dirname, '..', process.env.UPLOAD_DIR || './storage/uploads'),
+    maxFiles: 3,
+    maxBytes: 5 * 1024 * 1024,
+  },
 });

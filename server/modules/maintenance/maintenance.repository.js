@@ -100,4 +100,37 @@ async function listUpdates(requestId, { includeInternal }) {
   return rows;
 }
 
-module.exports = { activeUnitsOf, insertRequest, insertUpdate, findById, listRequests, listUpdates };
+/** BR-19: stores the details of photos already saved to disk. */
+async function insertAttachments(client, { buildingId, requestId, uploadedBy }, files) {
+  for (const f of files) {
+    await client.query(
+      `INSERT INTO request_attachments (building_id, request_id, stored_name, original_name, mime_type, size_bytes, uploaded_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [buildingId, requestId, f.storedName, f.originalName, f.mime, f.size, uploadedBy],
+    );
+  }
+}
+
+/** A request's photos, in upload order. */
+async function listAttachments(requestId) {
+  const { rows } = await db.query(
+    `SELECT id, original_name, mime_type, size_bytes, created_at
+       FROM request_attachments WHERE request_id = $1 ORDER BY id`,
+    [requestId],
+  );
+  return rows;
+}
+
+/** One photo of one request (both ids must match, so photos cannot be fetched through another request). */
+async function findAttachment(requestId, attachmentId) {
+  const { rows } = await db.query(
+    `SELECT stored_name, original_name, mime_type FROM request_attachments WHERE request_id = $1 AND id = $2`,
+    [requestId, attachmentId],
+  );
+  return rows[0] || null;
+}
+
+module.exports = {
+  activeUnitsOf, insertRequest, insertUpdate, findById, listRequests, listUpdates,
+  insertAttachments, listAttachments, findAttachment,
+};

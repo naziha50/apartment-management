@@ -3,22 +3,25 @@
  * Maintenance REST endpoints (mounted at /api/v1/maintenance).
  *
  *   POST /requests   submit a request (residents)          FR-16, FR-17
+ *                    JSON, or multipart with up to 3 `photos` (BR-19)
  *   GET  /my-units   the resident's active apartments      FR-17
  *   GET  /requests   requests the user may see             FR-21
  *   GET  /requests/:id  one request with its history       FR-21
+ *   GET  /requests/:id/attachments/:attId  one photo       BR-19
  *
  * Routes only handle HTTP; every rule is checked in maintenance.service.js,
  * so no route can skip it (NFR-02).
  */
 const express = require('express');
 const service = require('./maintenance.service');
+const { photosField } = require('./uploads');
 const { requireUser } = require('../../middleware/current-user');
 
 const router = express.Router();
 router.use(requireUser);
 
-router.post('/requests', async (req, res) => {
-  res.status(201).json(await service.createRequest(req.user, req.body));
+router.post('/requests', photosField, async (req, res) => {
+  res.status(201).json(await service.createRequest(req.user, req.body, req.files));
 });
 
 router.get('/requests', async (req, res) => {
@@ -27,6 +30,14 @@ router.get('/requests', async (req, res) => {
 
 router.get('/requests/:id', async (req, res) => {
   res.json(await service.getRequest(req.user, req.params.id));
+});
+
+// Photos are private: served only through the API, never from /public (NFR-23).
+router.get('/requests/:id/attachments/:attId', async (req, res) => {
+  const photo = await service.getAttachment(req.user, req.params.id, req.params.attId);
+  res.set('Content-Type', photo.mimeType);
+  res.set('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(photo.name)}`);
+  res.sendFile(photo.file);
 });
 
 router.get('/my-units', async (req, res) => {

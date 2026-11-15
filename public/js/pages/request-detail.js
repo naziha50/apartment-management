@@ -24,6 +24,23 @@ function describe(u) {
   return 'Note added';
 }
 
+/** A thumbnail that opens the full photo. The image is loaded through the API (see api.blob). */
+function photoLink(a) {
+  const img = el('img', { alt: a.name });
+  const link = el('a', { href: '#', target: '_blank', rel: 'noopener', 'aria-label': `Open photo ${a.name}` }, img);
+  api
+    .blob(a.url)
+    .then((file) => {
+      const url = URL.createObjectURL(file);
+      img.src = url;
+      link.href = url;
+    })
+    .catch(() => {
+      img.alt = `${a.name} (could not be loaded)`;
+    });
+  return link;
+}
+
 function render(r, user) {
   document.title = `${r.requestNumber} · Green Valley Apartments`;
   const back = user.role === 'resident'
@@ -79,6 +96,18 @@ function render(r, user) {
       ),
       el('section', { class: 'card' }, el('h2', { text: 'Description' }), el('p', { class: 'prewrap', text: r.description })),
     ),
+    r.attachments.length
+      ? el(
+          'section',
+          { class: 'card' },
+          el('h2', { text: 'Photos' }),
+          el(
+            'div',
+            { class: 'photos' },
+            r.attachments.map(photoLink),
+          ),
+        )
+      : null,
     el('section', { class: 'card' }, el('h2', { text: 'History' }), el('ol', { class: 'timeline' }, history)),
   );
   animateList([...main.querySelectorAll('.card')]);

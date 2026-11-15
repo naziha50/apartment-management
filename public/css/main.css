@@ -281,6 +281,13 @@ table.data tbody tr:hover { background: #fafaf7; }
 .timeline__item--internal::before { background: var(--warn); }
 .timeline__note { margin: 0.25rem 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 
+/* Photo thumbnails (BR-19), on the form preview and the request page */
+.photos { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.photos:empty { display: none; }
+.photos img, .photos a { display: block; width: 104px; height: 104px; border-radius: var(--radius-sm); }
+.photos img { object-fit: cover; border: 1px solid var(--line); background: var(--surface-2); }
+input[type="file"] { min-height: var(--tap); font: inherit; max-width: 100%; }
+
 /* ---------------------------------------------------------- accessibility */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }

@@ -50,6 +50,13 @@
           <textarea id="description" name="description" maxlength="4000" required aria-describedby="description-hint"></textarea>
         </div>
 
+        <div class="field">
+          <label for="photos">Photos <span class="muted small">(optional)</span></label>
+          <p class="hint" id="photos-hint">Up to 3 photos. JPG, PNG or WEBP, 5 MB each.</p>
+          <input id="photos" name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple aria-describedby="photos-hint">
+          <div class="photos" id="photo-preview"></div>
+        </div>
+
         <div class="form-actions">
           <button type="submit" class="btn btn-primary">Submit request</button>
           <a class="btn btn-secondary" href="/resident/requests.html">Cancel</a>
