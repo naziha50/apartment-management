@@ -115,10 +115,32 @@ function scopeFor(user) {
   return { submittedBy: user.id };
 }
 
-/** FR-21: the requests the user may see, most recently updated first. */
-async function listRequests(user) {
-  const rows = await repo.listRequests(user.buildingId, scopeFor(user));
-  return rows.map(toDto);
+const PAGE_SIZE = 20;
+const MAX_PAGE = 10000; // keeps OFFSET a sane number whatever is typed into the address bar
+
+/** FR-22: list filters from the query string, e.g. ?status=submitted,under_review&priority=high&q=tap */
+function parseFilters(query = {}) {
+  const v = new Validator(query);
+  const statuses = String(query.status || '').split(',').map((s) => s.trim()).filter(Boolean);
+  if (statuses.some((s) => !STATUSES.includes(s))) v.fail('status', 'Please choose a valid status.');
+  const filters = {
+    statuses,
+    category: v.oneOf('category', CATEGORIES, { required: false, label: 'Category' }),
+    priority: v.oneOf('priority', [...PRIORITIES, 'unset'], { required: false, label: 'Priority' }),
+    q: typeof query.q === 'string' ? query.q.trim().slice(0, 100) || null : null,
+  };
+  v.throwIfInvalid('Some filters are not valid.');
+  return filters;
+}
+
+/** FR-21 / FR-22: one page of the requests the user may see, most recently updated first. */
+async function listRequests(user, query = {}) {
+  const page = Math.min(MAX_PAGE, Math.max(1, Number.parseInt(query.page, 10) || 1));
+  const { rows, total } = await repo.listRequests(user.buildingId, scopeFor(user), parseFilters(query), {
+    limit: PAGE_SIZE,
+    offset: (page - 1) * PAGE_SIZE,
+  });
+  return { items: rows.map(toDto), page, pageSize: PAGE_SIZE, total };
 }
 
 /** FR-21: one request with its history. Requests the user may not see answer 404, never 403 (NFR-24). */

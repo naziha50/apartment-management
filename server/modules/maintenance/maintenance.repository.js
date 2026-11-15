@@ -57,33 +57,42 @@ async function findById(id, client = db) {
 }
 
 /**
- * Requests in a building, newest activity first (FR-21).
- * `scope` narrows it: { submittedBy } for residents, { assignedTo } for staff.
- * shortcut: capped at 200 rows with no paging; add paging with the filters of FR-22.
+ * One page of requests in a building, newest activity first (FR-21, FR-22).
+ * `scope` is what the user may see: { submittedBy } for residents, { assignedTo } for staff.
+ * `filters` come from the list page: { statuses, category, priority, q }.
+ * Returns { rows, total } where total counts every match, not just this page.
  */
-async function listRequests(buildingId, scope = {}) {
+async function listRequests(buildingId, scope = {}, filters = {}, { limit = 20, offset = 0 } = {}) {
   const params = [buildingId];
   const where = ['r.building_id = $1'];
-  if (scope.submittedBy) {
-    params.push(scope.submittedBy);
-    where.push(`r.submitted_by = $${params.length}`);
-  }
-  if (scope.assignedTo) {
-    params.push(scope.assignedTo);
-    where.push(`r.assigned_to = $${params.length}`);
-  }
+  // Adds a condition; every "?" in it becomes the same new parameter.
+  const add = (sql, value) => {
+    params.push(value);
+    where.push(sql.replaceAll('?', `$${params.length}`));
+  };
+  if (scope.submittedBy) add('r.submitted_by = ?', scope.submittedBy);
+  if (scope.assignedTo) add('r.assigned_to = ?', scope.assignedTo);
+  if (filters.statuses?.length) add('r.status = ANY(?::request_status[])', filters.statuses);
+  if (filters.category) add('r.category = ?', filters.category);
+  if (filters.priority === 'unset') where.push('r.priority IS NULL');
+  else if (filters.priority) add('r.priority = ?::request_priority', filters.priority);
+  // % and _ typed by the user are matched literally.
+  if (filters.q) add('(r.title ILIKE ? OR r.request_number ILIKE ?)', `%${filters.q.replace(/[\\%_]/g, '\\$&')}%`);
+
+  params.push(limit, offset);
   const { rows } = await db.query(
-    `SELECT r.*, u.unit_number, s.full_name AS submitted_by_name, a.full_name AS assigned_to_name
+    `SELECT r.*, u.unit_number, s.full_name AS submitted_by_name, a.full_name AS assigned_to_name,
+            count(*) OVER () AS total_count
        FROM maintenance_requests r
        LEFT JOIN units u ON u.id = r.unit_id
        LEFT JOIN users s ON s.id = r.submitted_by
        LEFT JOIN users a ON a.id = r.assigned_to
       WHERE ${where.join(' AND ')}
       ORDER BY r.updated_at DESC, r.id DESC
-      LIMIT 200`,
+      LIMIT $${params.length - 1} OFFSET $${params.length}`,
     params,
   );
-  return rows;
+  return { rows, total: rows.length ? Number(rows[0].total_count) : 0 };
 }
 
 /** A request's history, oldest first (FR-20). Residents never get internal notes. */

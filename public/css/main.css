@@ -303,6 +303,13 @@ input[type="file"] { min-height: var(--tap); font: inherit; max-width: 100%; }
 .action[open] > summary { border-bottom: 1px solid var(--line); }
 .action > form { padding: 1rem; }
 
+/* List filters and paging (FR-22, UI-07) */
+.filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 0.75rem; align-items: end; }
+.filters .field { gap: 0.25rem; }
+.filters .form-actions { align-self: end; }
+.list-summary { margin: 0; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--line); }
+.pagination { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.75rem 1.25rem; border-top: 1px solid var(--line); }
+
 /* ---------------------------------------------------------- accessibility */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }

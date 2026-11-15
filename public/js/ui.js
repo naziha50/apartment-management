@@ -117,3 +117,16 @@ export async function withBusy(button, fn) {
     button.replaceChildren(...original);
   }
 }
+
+/** Previous / next buttons for a paged list (UI-07). Returns null when everything fits on one page. */
+export function pagination({ page, pageSize, total }, onChange) {
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  if (pages <= 1) return null;
+  return el(
+    'nav',
+    { class: 'pagination', 'aria-label': 'Pages' },
+    el('button', { type: 'button', class: 'btn btn-secondary', disabled: page <= 1, onclick: () => onChange(page - 1), text: '← Previous' }),
+    el('span', { class: 'muted small', text: `Page ${page} of ${pages}` }),
+    el('button', { type: 'button', class: 'btn btn-secondary', disabled: page >= pages, onclick: () => onChange(page + 1), text: 'Next →' }),
+  );
+}
