@@ -6,8 +6,19 @@
  *
  *   const user = await initLayout({ active: 'home' });   // user may be null
  */
+import { api } from './api.js';
 import { el, $, icon, replace } from './dom.js';
 import { initViewingAs } from './viewing-as.js';
+
+/** FR-25: shows the unread count on the bell (0 hides the number). Pages call it after marking read. */
+export function setBellCount(unread) {
+  const bell = $('#bell');
+  if (!bell) return;
+  const count = bell.querySelector('.bell__count');
+  count.textContent = unread > 99 ? '99+' : String(unread);
+  count.hidden = !unread;
+  bell.setAttribute('aria-label', unread ? `Notifications, ${unread} unread` : 'Notifications');
+}
 
 const BUILDING_NAME = 'Green Valley Apartments';
 
@@ -45,6 +56,13 @@ export async function initLayout({ active } = {}) {
     const open = nav.classList.toggle('is-open');
     toggle.setAttribute('aria-expanded', String(open));
   });
+  // FR-25: the bell, shown once we know who is viewing.
+  const bell = el(
+    'a',
+    { id: 'bell', class: 'icon-btn bell', href: '/notifications.html', 'aria-label': 'Notifications', 'aria-current': active === 'notifications' ? 'page' : null, hidden: true },
+    icon('bell'),
+    el('span', { class: 'bell__count', 'aria-hidden': 'true', hidden: true }),
+  );
 
   replace(
     header,
@@ -56,6 +74,7 @@ export async function initLayout({ active } = {}) {
         { class: 'topbar__inner' },
         toggle,
         el('a', { class: 'brand', href: '/' }, el('span', { class: 'brand__mark' }, icon('home')), el('span', { class: 'brand__name', text: BUILDING_NAME })),
+        bell,
         el('label', { class: 'viewing-as' }, el('span', { class: 'viewing-as__label', text: 'Viewing as' }), select),
       ),
     ),
@@ -78,6 +97,11 @@ export async function initLayout({ active } = {}) {
       if (first) {
         first = false;
         renderNav(user);
+        if (user) {
+          bell.hidden = false;
+          // shortcut: the count is read on each page load, not pushed live; add polling or server-sent events if needed.
+          api.get('/notifications/unread-count').then(({ unread }) => setBellCount(unread)).catch(() => {});
+        }
         resolve(user);
       } else {
         location.reload();

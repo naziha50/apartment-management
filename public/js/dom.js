@@ -40,6 +40,7 @@ export function replace(node, ...children) {
 const ICONS = {
   home: 'M12 3 2 11h3v9h6v-6h2v6h6v-9h3Z',
   menu: 'M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z',
+  bell: 'M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2Zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4a1.5 1.5 0 0 0-3 0v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1Z',
 };
 
 export function icon(name, label) {

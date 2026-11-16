@@ -42,7 +42,7 @@ building admin and staff review, assign, track and resolve them (SRS v1.3, §4.3
 **Sprint 4 – Close the loop**
 - [x] Step 21: resolved requests close automatically after 7 days (BR-18)
 - [x] Step 22: residents rate a closed request once (FR-50, BR-26)
-- [ ] Step 23: in-app notifications for status changes, assignments and notes (FR-25)
+- [x] Step 23: in-app notifications for status changes, assignments and notes (FR-25)
 - [ ] Step 24: photos on progress notes (BR-19)
 
 ## Frontend conventions
@@ -137,6 +137,7 @@ next numbered file — never edit one that is already committed. See
 | `004_fix_request_number_overflow.sql` | — | Request numbers keep working after 99,999 (`MR-2026-99999`, then `MR-2026-100000`). The first version cut longer numbers, which made request 100,000 clash with 10,000 |
 | `005_add_request_list_index.sql` | — | Index in the lists' sort order: first page of 100,000 requests in 0.1 ms instead of 89 ms |
 | `006_create_request_ratings.sql` | `request_ratings` | The resident's 1–5 rating and optional comment (FR-50, BR-26). One per request, never changed: the request id is the key |
+| `007_create_notifications.sql` | `notifications` | In-app messages, one row per person (FR-25). Written in the same transaction as the change they describe |
 
 **Measured at scale** (100,000 requests in the test database, 50 users at once): about 1,250 API
 requests per second, no errors, 95% of answers within 70 ms.
@@ -199,6 +200,30 @@ curl -X POST http://localhost:3000/api/v1/maintenance/requests -H "X-User-Id: 5"
   -F category=plumbing -F location=unit -F "photos=@tap.jpg"
 ```
 
+## Notifications API
+
+Under `/api/v1/notifications`, always for the "Viewing as" user only (FR-25):
+
+| Method & path | What it does |
+|---|---|
+| `GET /` | My notifications, newest first, 20 per page (`?page=`). Returns `{ items, page, pageSize, total, unread }` |
+| `GET /unread-count` | `{ unread }`, for the bell in the top bar |
+| `POST /:id/read` | Mark one as read (someone else's answers 404) |
+| `POST /read-all` | Mark all as read |
+
+Who is told what (never about their own action, and residents never about internal notes):
+
+| Event | Notified |
+|---|---|
+| New request | The admin and staff with `maintenance.review` |
+| Status change (incl. reopen, reject with reason) | The resident and the assigned staff member |
+| Assigned | The new assignee |
+| Note | The resident and the assignee; an internal note only the assignee |
+| Priority changed | The assignee |
+| Closed automatically (BR-18) | The resident |
+
+The bell's count is read when a page loads; it is not pushed live.
+
 ## Run it
 
 ```bash
@@ -256,9 +281,11 @@ server/
                   state-machine.js  who may change status, assign, add notes, change priority
                   uploads.js        photo upload checks and storage
                   maintenance.constants.js  categories, statuses, priorities
+    notifications/  in-app notifications: routes → service (notify) → repository
 public/
   index.html               start page (+ maintenance overview for the office)
   request.html             one request: details, photos, history, actions
+  notifications.html       my notifications (the bell in the top bar)
   resident/new-request.html, resident/requests.html   report a problem, my requests
   manage/requests.html     requests list with filters for the admin and staff
   css/main.css             the one stylesheet

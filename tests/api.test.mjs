@@ -316,6 +316,46 @@ it('the resident rates a closed request once, within 7 days (FR-50, BR-26)', asy
   assert.match((await rate(U.tanvir, open, { rating: 5 })).body.error.message, /once it is closed/);
 });
 
+it('notifications reach the right people, never the actor, and never leak internal notes (FR-25)', async () => {
+  const mine = async (user, requestId) => (await call(user, 'GET', '/notifications')).body.items.filter((n) => n.requestId === requestId).map((n) => n.message);
+  const unread = async (user) => (await call(user, 'GET', '/notifications/unread-count')).body.unread;
+
+  const id = (await call(U.tanvir, 'POST', '/maintenance/requests', { title: 'Leaking pipe', category: 'plumbing', location: 'unit', description: 'x' })).body.id;
+  assert.deepEqual(await mine(U.admin, id), [`New request from Tanvir Ahmed: Leaking pipe`], 'the office hears about it');
+  assert.equal((await mine(U.karim, id)).length, 1, 'reviewing staff too');
+  assert.deepEqual(await mine(U.jamal, id), [], 'staff who do not review do not');
+  assert.deepEqual(await mine(U.tanvir, id), [], 'not about your own action');
+
+  const url = `/maintenance/requests/${id}`;
+  await call(U.admin, 'POST', `${url}/transition`, { to: 'under_review', priority: 'high' });
+  assert.match((await mine(U.tanvir, id))[0], /is now under review/);
+  await call(U.admin, 'POST', `${url}/assign`, { staffId: U.jamal });
+  assert.match((await mine(U.jamal, id))[0], /You were assigned request/);
+
+  await call(U.jamal, 'POST', `${url}/notes`, { note: 'Supplier code 4471', internal: true });
+  assert.ok((await mine(U.tanvir, id)).every((m) => !m.includes('4471')), 'internal notes never reach the resident');
+  await call(U.jamal, 'POST', `${url}/notes`, { note: 'Part ordered' });
+  assert.match((await mine(U.tanvir, id))[0], /New note on request .*: Part ordered/);
+  assert.ok((await mine(U.jamal, id)).every((m) => !m.includes('Part ordered')), 'not about your own note');
+
+  // Reading: one, then all; someone else's notification is not found.
+  const before = await unread(U.tanvir);
+  assert.ok(before >= 2);
+  const first = (await call(U.tanvir, 'GET', '/notifications')).body.items[0];
+  assert.equal((await call(U.sadia, 'POST', `/notifications/${first.id}/read`)).status, 404, 'not yours');
+  assert.equal((await call(U.tanvir, 'POST', `/notifications/${first.id}/read`)).status, 204);
+  assert.equal(await unread(U.tanvir), before - 1);
+  assert.equal((await call(U.tanvir, 'POST', '/notifications/read-all')).status, 204);
+  assert.equal(await unread(U.tanvir), 0);
+
+  // The automatic close tells the resident, in the same statement.
+  await pool.query(`UPDATE maintenance_requests SET status = 'resolved', resolution_note = 'Fixed', resolved_at = now() - interval '8 days' WHERE id = $1`, [id]);
+  const { autoCloseResolved } = require('../server/modules/maintenance/maintenance.service');
+  await autoCloseResolved();
+  assert.match((await mine(U.tanvir, id))[0], /was closed automatically/);
+  assert.equal(await unread(U.tanvir), 1);
+});
+
 it('request numbers keep working after 99,999 (migration 004)', async () => {
   // Safe: this file only ever talks to the test database, which is wiped on every run.
   await pool.query("SELECT setval('maintenance_request_number_seq', 99998)");

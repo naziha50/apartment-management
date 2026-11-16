@@ -5,12 +5,14 @@
  * So far: FR-16 submit a request, FR-17 attach the resident and unit automatically,
  * FR-21 track requests (list + detail with history), BR-19 photos,
  * FR-18 / FR-20 status changes following the rules in state-machine.js (BR-16),
- * FR-19 assigning requests to staff, FR-20 progress notes (internal ones hidden from residents).
+ * FR-19 assigning requests to staff, FR-20 progress notes (internal ones hidden from residents),
+ * FR-25 notifications for every change, written in the same transaction as the change.
  */
 const db = require('../../db/pool');
 const repo = require('./maintenance.repository');
 const uploads = require('./uploads');
 const sm = require('./state-machine');
+const notifications = require('../notifications/notifications.service');
 const { CATEGORIES, LOCATIONS, STATUSES, PRIORITIES, RESOLVED_DAYS } = require('./maintenance.constants');
 const { Validator } = require('../../lib/validate');
 const { forbidden, notFound, conflict } = require('../../lib/errors');
@@ -93,6 +95,10 @@ async function createRequest(user, body, files = []) {
       });
       await repo.insertUpdate(client, { requestId: newId, authorId: user.id, kind: 'status_change', toStatus: 'submitted' });
       await repo.insertAttachments(client, { buildingId: user.buildingId, requestId: newId, uploadedBy: user.id }, saved);
+      await notifications.notifyOffice(client, {
+        buildingId: user.buildingId, requestId: newId, except: user.id,
+        message: `New request from ${user.fullName}: ${title}`,
+      });
       return newId;
     });
   } catch (err) {
@@ -256,6 +262,12 @@ async function transition(user, rawId, body) {
       toStatus: to,
       note: note ?? (priority ? `Priority set to ${priority}.` : null),
     });
+    const what = move.kind === 'reopen' ? 'was reopened' : `is now ${statusText(to)}`;
+    await notifications.notify(client, {
+      buildingId: row.building_id, requestId: id, except: user.id,
+      to: [row.submitted_by, row.assigned_to],
+      message: `Request ${row.request_number} ${what}${to === 'rejected' ? `. Reason: ${note}` : ''}.`,
+    });
   });
   return getRequest(user, id);
 }
@@ -353,6 +365,10 @@ async function assign(user, rawId, body) {
       kind: 'assignment',
       note: `${row.assigned_to ? 'Reassigned' : 'Assigned'} to ${staff.full_name}.`,
     });
+    await notifications.notify(client, {
+      buildingId: row.building_id, requestId: id, except: user.id, to: [staffId],
+      message: `You were assigned request ${row.request_number}: ${row.title}`,
+    });
   });
   return getRequest(user, id);
 }
@@ -374,6 +390,11 @@ async function addNote(user, rawId, body) {
     const row = await loadVisible(id, user, client);
     if (!sm.canAddNote(row, user)) throw forbidden('You cannot add notes to this request.');
     await repo.insertUpdate(client, { requestId: id, authorId: user.id, kind: 'note', note, isInternal: internal });
+    await notifications.notify(client, {
+      buildingId: row.building_id, requestId: id, except: user.id,
+      to: internal ? [row.assigned_to] : [row.submitted_by, row.assigned_to], // residents never hear about internal notes
+      message: `${internal ? 'Internal note' : 'New note'} on request ${row.request_number}: ${note}`,
+    });
     await repo.updateRequest(client, id, {}); // a note is activity: move it up in the lists
   });
   return getRequest(user, id);
@@ -404,6 +425,10 @@ async function setPriority(user, rawId, body) {
       authorId: user.id,
       kind: 'priority',
       note: `Priority changed from ${priorityText(row.priority)} to ${priorityText(priority)}.`,
+    });
+    await notifications.notify(client, {
+      buildingId: row.building_id, requestId: id, except: user.id, to: [row.assigned_to],
+      message: `Priority of request ${row.request_number} changed to ${priorityText(priority)}.`,
     });
   });
   return getRequest(user, id);

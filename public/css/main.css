@@ -274,6 +274,27 @@ table.data tbody tr:hover { background: #fafaf7; }
 .timeline__item--internal::before { background: var(--warn); }
 .timeline__note { margin: 0.25rem 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 
+/* Notifications (FR-25): bell with unread count, and the list */
+.bell { position: relative; }
+.bell__count {
+  position: absolute; top: 4px; right: 2px; min-width: 18px; height: 18px; padding: 0 4px;
+  display: grid; place-items: center; border-radius: 999px;
+  background: var(--surface); color: var(--primary); font-size: 0.7rem; font-weight: 700; line-height: 1;
+}
+.notices { list-style: none; margin: 0; padding: 0; }
+.notice {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.25rem 1rem;
+  padding: 0.6rem 1.25rem; border-bottom: 1px solid var(--line);
+}
+.notice a { display: flex; align-items: baseline; gap: 0.5rem; min-height: var(--tap); padding: 0.4rem 0; color: var(--ink); text-decoration: none; }
+.notice a:hover .notice__text { text-decoration: underline; }
+.notice--unread { background: var(--primary-soft); }
+.notice--unread .notice__text { font-weight: 600; }
+.notice__new {
+  flex: none; padding: 0 0.45rem; border: 1px solid var(--primary); border-radius: 999px;
+  color: var(--primary); font-size: 0.75rem; font-weight: 700;
+}
+
 /* Rating stars (FR-50): decorative; the words next to them carry the meaning */
 .stars { color: var(--warn); letter-spacing: 0.1em; }
 

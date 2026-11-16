@@ -210,8 +210,8 @@ async function overview(buildingId) {
 }
 
 /**
- * BR-18: closes every request resolved more than `days` ago and records it in the
- * history as "System", in one statement. If two server processes run it at the same
+ * BR-18: closes every request resolved more than `days` ago, records it in the
+ * history as "System" and notifies the resident (FR-25), in one statement. If two server processes run it at the same
  * time, row locks make the second one skip what the first already closed.
  * Returns the ids that were closed.
  */
@@ -221,11 +221,17 @@ async function autoCloseResolved(days, note) {
        UPDATE maintenance_requests
           SET status = 'closed', closed_at = now(), updated_at = now()
         WHERE status = 'resolved' AND resolved_at <= now() - make_interval(days => $1)
-        RETURNING id
+        RETURNING id, building_id, submitted_by, request_number
+     ), history AS (
+       INSERT INTO request_updates (request_id, author_id, kind, from_status, to_status, note)
+       SELECT id, NULL, 'status_change', 'resolved', 'closed', $2 FROM closed
+     ), told AS (
+       -- FR-25: the resident hears about it (same statement, so never one without the other)
+       INSERT INTO notifications (building_id, user_id, request_id, message)
+       SELECT building_id, submitted_by, id, 'Request ' || request_number || ' was closed automatically.'
+         FROM closed WHERE submitted_by IS NOT NULL
      )
-     INSERT INTO request_updates (request_id, author_id, kind, from_status, to_status, note)
-     SELECT id, NULL, 'status_change', 'resolved', 'closed', $2 FROM closed
-     RETURNING request_id`,
+     SELECT id AS request_id FROM closed`,
     [days, note],
   );
   return rows.map((r) => Number(r.request_id));
