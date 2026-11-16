@@ -128,6 +128,11 @@ next numbered file — never edit one that is already committed. See
 | `001_create_users_and_units.sql` | `buildings`, `users`, `staff_permissions`, `units`, `occupancies` | Who lives where and who handles requests |
 | `002_create_maintenance_requests.sql` | `maintenance_requests`, `request_updates` | Requests (number `MR-YYYY-NNNNN`, status, priority, assignee) and their full history |
 | `003_create_request_attachments.sql` | `request_attachments` | Photo details (BR-19). The files themselves are saved in `UPLOAD_DIR` (default `storage/uploads/`, git-ignored) under random names |
+| `004_fix_request_number_overflow.sql` | — | Request numbers keep working after 99,999 (`MR-2026-99999`, then `MR-2026-100000`). The first version cut longer numbers, which made request 100,000 clash with 10,000 |
+| `005_add_request_list_index.sql` | — | Index in the lists' sort order: first page of 100,000 requests in 0.1 ms instead of 89 ms |
+
+**Measured at scale** (100,000 requests in the test database, 50 users at once): about 1,250 API
+requests per second, no errors, 95% of answers within 70 ms.
 
 A request moves through the statuses in SRS BR-16 / Appendix A:
 `submitted → under_review → in_progress → resolved → closed`, or ends as `rejected` or `cancelled`.

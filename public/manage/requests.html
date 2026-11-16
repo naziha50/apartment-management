@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Review, assign and follow up maintenance requests.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <title>Requests · Green Valley Apartments</title>
   <link rel="stylesheet" href="/css/main.css">
   <script src="/vendor/motion.js" defer></script>
@@ -16,7 +18,7 @@
     <div class="page-head">
       <div>
         <h1 id="page-title">Maintenance requests</h1>
-        <p class="muted" id="page-hint"></p>
+        <p class="muted" id="page-hint">Most recently updated first.</p>
       </div>
     </div>
 
@@ -24,7 +26,8 @@
     <section class="card" id="filters" hidden></section>
 
     <!-- FR-18 / FR-19 / FR-20: the requests this admin or staff member works on. -->
-    <section class="card card--flush" id="content" aria-live="polite">
+    <!-- Hidden until the first results arrive, so the filter bar appearing above it cannot push it down. -->
+    <section class="card card--flush" id="content" aria-live="polite" hidden>
       <p class="muted empty">Loading…</p>
     </section>
   </main>

@@ -76,7 +76,9 @@ main[tabindex="-1"]:focus { outline: none; }
 .skip-link:focus { top: 0.5rem; }
 
 /* ------------------------------------------------------------------ header */
-.site-header { position: sticky; top: 0; z-index: 20; }
+/* The header is filled in by layout.js after the page first paints. Reserving its height
+   (60px top bar + 49px menu) stops the whole page jumping down when it appears. */
+.site-header { position: sticky; top: 0; z-index: 20; min-height: 109px; }
 .topbar { background: var(--primary); color: var(--primary-ink); }
 .topbar__inner {
   max-width: var(--content); margin: 0 auto; padding: 0 1rem;
@@ -128,6 +130,7 @@ main[tabindex="-1"]:focus { outline: none; }
 .nav-toggle { display: none; }
 
 @media (max-width: 720px) {
+  .site-header { min-height: 60px; } /* menu folds into the button: top bar only */
   .nav-toggle { display: inline-grid; }
   .mainnav { display: none; }
   .mainnav.is-open { display: block; }

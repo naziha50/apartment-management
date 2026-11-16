@@ -237,3 +237,15 @@ it('photos: checked by content, served only to people who may see the request (B
   assert.equal(own.type, 'image/png');
   assert.equal((await call(U.sadia, 'GET', photoUrl)).status, 404);
 });
+
+it('request numbers keep working after 99,999 (migration 004)', async () => {
+  // Safe: this file only ever talks to the test database, which is wiped on every run.
+  await pool.query("SELECT setval('maintenance_request_number_seq', 99998)");
+  const make = () => call(U.tanvir, 'POST', '/maintenance/requests', { title: 'Number check', category: 'other', location: 'unit', description: 'x' });
+  const a = await make();
+  const b = await make();
+  assert.equal(a.status, 201);
+  assert.equal(b.status, 201, 'request 100000 must not collide with request 10000');
+  assert.match(a.body.requestNumber, /^MR-\d{4}-99999$/);
+  assert.match(b.body.requestNumber, /^MR-\d{4}-100000$/);
+});

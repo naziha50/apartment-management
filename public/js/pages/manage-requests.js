@@ -127,27 +127,35 @@ async function load(all) {
   }
 }
 
+// Does this user see every request? Only changes wording; known once "Viewing as" has loaded.
+let all = true;
+
+const showFilters = () =>
+  replace(
+    filterBox,
+    filterForm(new URLSearchParams(location.search), (data) => {
+      // A new filter starts again from page 1.
+      const clean = new URLSearchParams([...data].filter(([, v]) => v !== ''));
+      history.pushState(null, '', `${location.pathname}${clean.size ? `?${clean}` : ''}`);
+      load(all);
+    }),
+  );
+
+// The filter bar does not depend on who is viewing, so draw it at once: showing it
+// later would push the list down while the page loads (layout shift).
+showFilters();
+filterBox.hidden = false;
+
 try {
   const user = await initLayout({ active: 'requests' });
+  card.hidden = false; // everything below renders into it
   if (!user || user.role === 'resident') {
+    filterBox.hidden = true;
     replace(card, emptyState('This page is for staff and the admin.', 'Choose a staff member or the admin in the “Viewing as” menu.'));
   } else {
-    const all = seesAll(user);
+    all = seesAll(user);
     $('#page-title').textContent = all ? 'Maintenance requests' : 'My tasks';
     $('#page-hint').textContent = all ? 'Every request in the building, most recently updated first.' : 'Requests assigned to you, most recently updated first.';
-
-    const showFilters = () =>
-      replace(
-        filterBox,
-        filterForm(new URLSearchParams(location.search), (data) => {
-          // A new filter starts again from page 1.
-          const clean = new URLSearchParams([...data].filter(([, v]) => v !== ''));
-          history.pushState(null, '', `${location.pathname}${clean.size ? `?${clean}` : ''}`);
-          load(all);
-        }),
-      );
-    showFilters();
-    filterBox.hidden = false;
     // Back / forward: show the filters and results that belong to that address.
     window.addEventListener('popstate', () => {
       showFilters();
@@ -156,5 +164,6 @@ try {
     await load(all);
   }
 } catch (err) {
+  card.hidden = false;
   replace(card, errorState(err, () => location.reload()));
 }
