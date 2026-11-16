@@ -8,8 +8,8 @@ English and Bangla text).
 CSE327 – Software Engineering project, built in sprints from the
 **Software Requirements Specification (SRS) v1.3**.
 
-> **Current state:** the **Maintenance** module (SRS §4.3) is built, tested and runs end to
-> end, together with the in-app notifications it needs. Every other module in the SRS is
+> **Current state:** the **Maintenance** module (SRS §4.3) is **complete**: every maintenance
+> requirement is built, tested and runs end to end, together with the in-app notifications it needs. Every other module in the SRS is
 > planned but **not built yet**, and there is no real login yet (see
 > [Who am I?](#5-who-am-i-viewing-as--no-login-yet)).
 
@@ -54,7 +54,7 @@ gives one building one central place for all of that.
 |---|---|---|
 | **Users & residents** (§4.1) | Login and passwords, roles and staff permissions, resident profiles, household members, units and occupancy, bulk import, directory, move-out wizard | ⏳ Not built. Demo users and units come from a seed script |
 | **Billing & finances** (§4.2) | Fees, opening balances, monthly bills, payments and voiding, resident payment reports, receipts, statements, no-dues certificates, building expenses, finance reports | ⏳ Not built |
-| **Maintenance** (§4.3) | Submit, review, prioritise, assign, update, close, rate and report on requests; scheduled recurring jobs | ✅ **Built** (scheduled jobs and a few report items are still open, see §2) |
+| **Maintenance** (§4.3) | Submit, review, prioritise, assign, update, close, rate and report on requests; scheduled recurring jobs | ✅ **Complete** (see §2) |
 | **Announcements & notifications** (§4.4) | Targeted and scheduled announcements, printable notices, emergency contacts, in-app notifications, read tracking | 🟡 In-app notifications for maintenance are built. Announcements are not |
 | **Dashboard & reports** (§4.5) | Building, billing and maintenance overviews, activity log, search, CSV export, committee report | 🟡 Maintenance overview is built. The rest is not |
 | **General** (§4.6) | English / Bangla interface, install on phone, larger text | ⏳ Not built (Bangla *text* in data already works) |
@@ -104,6 +104,7 @@ New modules (billing, announcements, …) will follow the same pattern next to `
 | **FR-25 / FR-26** Notifications | Bell with unread count on every page, kept current while the page is open; list of past notifications, mark one or all as read; clicking opens the request |
 | **FR-29** Maintenance overview | Admin home page shows overdue requests (highlighted), counts per status, unassigned and open high-priority requests; each count links to the filtered list |
 | **FR-35** Cancel, confirm, reopen | Cancel while *Submitted*; confirm a *Resolved* request (→ *Closed*) or reopen it within 7 days with a comment |
+| **FR-49** Scheduled tasks | A **Scheduled tasks** page (admin, staff with `maintenance.assign`) to add and edit recurring jobs (title, category, every 1–24 months, next due date, default assignee, description), pause and resume them, and list all tasks or those due in the next 90 days. Each row shows when its request will be created |
 | **FR-50** Rate a request | 1–5 stars and an optional comment, once, within 7 days after closing. The admin and assignee see it; the report shows the average rating overall, per category and per staff member |
 | **BR-16** Statuses | Seven statuses and the allowed moves of Appendix A, enforced on the server |
 | **BR-17** Resolution targets | High 24 hours, Medium 3 days, Low 7 days from submission; without a priority it must be reviewed within 2 days. A request still needing action past its target is *overdue*: shown on the lists, the request page ("Resolve by" / "Review by") and the overview, and filterable. The targets are fixed in `maintenance.constants.js` until a settings screen exists |
@@ -127,10 +128,14 @@ New modules (billing, announcements, …) will follow the same pattern next to `
 | NFR-24 Privacy | A resident asking for another resident's request (or photo) gets "not found", not "forbidden" |
 | NFR-28 Bangla | Bangla names and text are stored and shown correctly (one demo resident has a Bangla name) |
 
-### Not built yet in the maintenance module
+### Left to other modules on purpose
 
-- **FR-49 / BR-25 Scheduled maintenance tasks:** tasks can be managed through the API and turn into requests by themselves (Steps 29–30); the page to manage them comes in Step 32.
-- Real login (FR-01, FR-02) — see the next sections.
+Every maintenance requirement is built. These related items belong to other modules and are not part of this work:
+
+- **Login and real permissions** (FR-01, FR-02, FR-31, users module): "Viewing as" stands in for login (§5).
+- **Changing the BR-17 deadline hours in settings** (settings module): they are fixed in `maintenance.constants.js`.
+- **Activity log** of status changes and assignments (FR-34, dashboard module).
+- **Bangla interface, install on phone, larger text** (FR-47, FR-48, FR-55, general).
 
 ---
 
@@ -249,6 +254,11 @@ Follow one request through its whole life:
    the internal note. He can choose **Yes, it is fixed** (→ *Closed*) or **It is not fixed**
    to reopen it with a comment. If he does nothing, it closes by itself after 7 days.
 6. **Rate it.** After closing, Tanvir can give 1–5 stars and a comment, once.
+
+Scheduled jobs: as the admin, open **Scheduled tasks** and add a job due within 7 days, then
+restart the server (it also checks every hour). The request appears under **Requests**, submitted
+by "System (scheduled task)" and assigned to the default assignee. After it is resolved, the
+admin closes it.
 
 Other things to try: Rahima must choose between her two units when reporting; a resident can
 cancel a request while it is still *Submitted*; a renamed non-photo file is rejected; the
@@ -487,6 +497,7 @@ public/
   resident/requests.html      my requests
   manage/requests.html        request list with filters, for admin and staff
   manage/report.html          maintenance report (admin, staff with reports.view)
+  manage/scheduled-tasks.html recurring jobs (admin, staff with maintenance.assign)
   css/main.css                the one stylesheet
   js/api.js                   fetch wrapper that sends X-User-Id
   js/dom.js                   safe element helpers
@@ -548,11 +559,11 @@ storage/         uploaded photos (git-ignored)
 - [x] Step 27: maintenance report: average time to resolve, busiest units and categories, average ratings (FR-22, FR-50)
 - [x] Step 28: CSV export of the request list (FR-38)
 
-**Sprint 6 – Scheduled maintenance** 🚧 (FR-49, BR-25; the last part of the maintenance module)
+**Sprint 6 – Scheduled maintenance** ✅ (FR-49, BR-25; the last part of the maintenance module)
 - [x] Step 29: scheduled tasks table and API: create, edit, pause, resume, list (who: admin, staff with `maintenance.assign`)
 - [x] Step 30: 7 days before a task is due the server creates the request (common area, Medium, Under review, by "System", assigned to the default assignee), with the task's due date as its deadline; the task moves forward by its interval; safe with several server processes
 - [x] Step 31: rules for these requests: the admin closes them (no resident to confirm, Appendix A), no rating
-- [ ] Step 32: "Scheduled tasks" page: list, form, pause / resume, due in the next 90 days
+- [x] Step 32: "Scheduled tasks" page: list, form, pause / resume, due in the next 90 days
 
 ---
 
@@ -560,7 +571,7 @@ storage/         uploaded photos (git-ignored)
 
 Not planned in detail yet. In SRS priority order (Must first):
 
-1. **Finish maintenance (this team's part):** Sprint 6 above.
+1. **Maintenance (this team's part): complete** after Sprint 6.
 2. **Users & residents:** real login with hashed passwords and lockout, sessions, password
    change and reset (FR-01, FR-02, FR-31, BR-02); screens for residents, units, occupancy and
    staff permissions (FR-03 – FR-08); then bulk import, household members, move-out (FR-42,

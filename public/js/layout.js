@@ -59,11 +59,13 @@ const NAV = {
     { key: 'home', label: 'Home', href: '/' },
     { key: 'requests', label: 'Requests', href: '/manage/requests.html' },
     { key: 'report', label: 'Report', href: '/manage/report.html', permission: 'reports.view' }, // FR-22, Appendix B
+    { key: 'tasks', label: 'Scheduled tasks', href: '/manage/scheduled-tasks.html', permission: 'maintenance.assign' }, // FR-49, Appendix B
   ],
   admin: [
     { key: 'home', label: 'Home', href: '/' },
     { key: 'requests', label: 'Requests', href: '/manage/requests.html' },
     { key: 'report', label: 'Report', href: '/manage/report.html' },
+    { key: 'tasks', label: 'Scheduled tasks', href: '/manage/scheduled-tasks.html' },
   ],
 };
 
