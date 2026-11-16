@@ -11,7 +11,7 @@ CREATE TABLE scheduled_tasks (
                       'plumbing', 'electrical', 'lift', 'generator', 'water_supply',
                       'gas', 'cleaning', 'security', 'common_area', 'other')),
   interval_months   SMALLINT NOT NULL CHECK (interval_months BETWEEN 1 AND 24),      -- BR-25
-  next_due_date     DATE NOT NULL,                                                   -- a Bangladesh calendar day
+  next_due_date     DATE NOT NULL,                                                   -- a calendar day
   default_assignee  BIGINT REFERENCES users(id),                                     -- optional (BR-25)
   is_paused         BOOLEAN NOT NULL DEFAULT FALSE,                                  -- paused tasks create nothing
   created_by        BIGINT NOT NULL REFERENCES users(id),

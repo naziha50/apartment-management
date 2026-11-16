@@ -9,7 +9,7 @@
  */
 import { api } from '../api.js';
 import { $, el, replace } from '../dom.js';
-import { LOCATION_LABELS, PRIORITY_LABELS, STATUS_LABELS, categoryLabel, formatDate, formatDateTime, overdueBadge, priorityBadge, statusBadge } from '../format.js';
+import { LOCATION_LABELS, NEEDS_ACTION, PRIORITY_LABELS, STATUS_LABELS, categoryLabel, formatDate, formatDateTime, overdueBadge, priorityBadge, statusBadge } from '../format.js';
 import { initLayout } from '../layout.js';
 import { appendPhotos, photoField, photoProblem, watchPhotos } from '../photos.js';
 import { animateIn, animateList, errorState, showFieldErrors, toast, withBusy } from '../ui.js';
@@ -269,7 +269,7 @@ function render(r, user) {
     ['Assigned to', r.assignedTo?.fullName || 'Not assigned yet'],
   ];
   // BR-17: the office's target time, while someone still has to act on the request.
-  if (user.role !== 'resident' && ['submitted', 'under_review', 'in_progress'].includes(r.status)) {
+  if (user.role !== 'resident' && NEEDS_ACTION.split(',').includes(r.status)) {
     details.push([r.priority ? 'Resolve by' : 'Review by', [formatDateTime(r.dueAt), r.overdue ? overdueBadge() : null]]);
   }
   if (r.rating) {

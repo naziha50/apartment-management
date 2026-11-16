@@ -5,11 +5,9 @@
  */
 const db = require('../../db/pool');
 
-// Dates go out as 'YYYY-MM-DD' text: node-pg would turn a DATE into a JavaScript Date at
-// the server's local midnight, which shifts the day in other time zones.
+// next_due_date comes back as 'YYYY-MM-DD' text (DATE columns are read as text, see db/pool.js).
 const SELECT = `
-  SELECT t.id, t.title, t.description, t.category, t.interval_months, t.is_paused,
-         to_char(t.next_due_date, 'YYYY-MM-DD') AS next_due_date,
+  SELECT t.id, t.title, t.description, t.category, t.interval_months, t.is_paused, t.next_due_date,
          t.default_assignee, a.full_name AS default_assignee_name, a.is_active AS default_assignee_active,
          t.created_at, t.updated_at
     FROM scheduled_tasks t
@@ -57,14 +55,14 @@ async function update(buildingId, id, fields) {
 
 /**
  * BR-25: the soonest active task whose request is due to be created (its due date is at most
- * `leadDays` away, in Bangladesh days), locked for this transaction. SKIP LOCKED makes another
+ * `leadDays` away), locked for this transaction. SKIP LOCKED makes another
  * server process running the same job pass over it instead of waiting and doing it twice.
  */
 async function lockNextDue(client, leadDays) {
   const { rows } = await client.query(
     `SELECT id, building_id, title, description, category, interval_months, default_assignee, next_due_date
        FROM scheduled_tasks
-      WHERE NOT is_paused AND next_due_date - $1::int <= (now() AT TIME ZONE 'Asia/Dhaka')::date
+      WHERE NOT is_paused AND next_due_date - $1::int <= CURRENT_DATE
       ORDER BY next_due_date, id
       LIMIT 1
       FOR UPDATE SKIP LOCKED`,
@@ -87,10 +85,10 @@ async function advance(client, id, leadDays) {
                 -- far enough for any outage (at most 1,200 monthly steps to look through)
                 t.next_due_date + make_interval(years => 100),
                 make_interval(months => t.interval_months)) AS d
-               WHERE d::date - $2::int > (now() AT TIME ZONE 'Asia/Dhaka')::date),
+               WHERE d::date - $2::int > CURRENT_DATE),
             updated_at = now()
       WHERE t.id = $1
-      RETURNING to_char(next_due_date, 'YYYY-MM-DD') AS next_due_date`,
+      RETURNING next_due_date`,
     [id, leadDays],
   );
   return rows[0].next_due_date;

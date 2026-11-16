@@ -126,9 +126,9 @@ test('overdue: priority sets the deadline, only while the request still needs ac
   }
 });
 
-test('a request from a scheduled task is due at the end of its due day in Dhaka, whatever its priority (BR-25)', () => {
+test('a request from a scheduled task is due at the end of its due day, whatever its priority (BR-25)', () => {
   const r = req({ submitted_at: '2026-11-01T00:00:00Z', priority: 'high', status: 'under_review', due_date: '2026-11-20' });
-  assert.equal(deadline(r).toISOString(), '2026-11-20T18:00:00.000Z', 'midnight after 20 Nov in Dhaka (UTC+6)');
+  assert.equal(deadline(r).toISOString(), '2026-11-20T18:00:00.000Z', 'midnight after 20 Nov (the app runs at UTC+6)');
   assert.equal(isOverdue(r, new Date('2026-11-20T17:59:00Z')), false, 'not overdue on its due day, even past the 24-hour target');
   assert.equal(isOverdue(r, new Date('2026-11-20T18:01:00Z')), true);
 });

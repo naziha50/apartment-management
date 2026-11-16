@@ -12,11 +12,16 @@ const { NEEDS_ACTION, TARGET_HOURS } = require('./maintenance.constants');
 // The numbers are our own constants (never user input), so they are written into the SQL.
 const OVERDUE_SQL = `(r.status IN (${NEEDS_ACTION.map((s) => `'${s}'`).join(', ')})
   AND CASE WHEN r.due_date IS NOT NULL
-        THEN (r.due_date + 1)::timestamp AT TIME ZONE 'Asia/Dhaka'   -- BR-25: end of the task's due day
+        THEN (r.due_date + 1)::timestamptz   -- BR-25: end of the task's due day
         ELSE r.submitted_at + make_interval(hours => CASE r.priority
         WHEN 'high' THEN ${Number(TARGET_HOURS.high)} WHEN 'medium' THEN ${Number(TARGET_HOURS.medium)}
         WHEN 'low' THEN ${Number(TARGET_HOURS.low)} ELSE ${Number(TARGET_HOURS.unset)} END)
       END < now())`;
+
+// FR-22: submitted on or after / on or before a day ('YYYY-MM-DD' in parameter `p`).
+// "Until" includes that whole day. One rule for the request list and the report.
+const SUBMITTED_FROM = (p) => `r.submitted_at >= ${p}::date::timestamptz`;
+const SUBMITTED_UNTIL = (p) => `r.submitted_at < (${p}::date + 1)::timestamptz`;
 
 /** FR-17: units the resident lives in today (start date passed, no end date or end date not passed). */
 async function activeUnitsOf(residentId) {
@@ -91,9 +96,8 @@ async function listRequests(buildingId, scope = {}, filters = {}, { limit = 20, 
   if (filters.overdue) where.push(OVERDUE_SQL);
   if (filters.unitId) add('r.unit_id = ?', filters.unitId);
   if (filters.assignedTo) add('r.assigned_to = ?', filters.assignedTo);
-  // FR-22 date range on the submission day in Bangladesh time (§2.6); `to` includes that whole day.
-  if (filters.from) add("r.submitted_at >= (?::date)::timestamp AT TIME ZONE 'Asia/Dhaka'", filters.from);
-  if (filters.to) add("r.submitted_at < (?::date + 1)::timestamp AT TIME ZONE 'Asia/Dhaka'", filters.to);
+  if (filters.from) add(SUBMITTED_FROM('?'), filters.from);
+  if (filters.to) add(SUBMITTED_UNTIL('?'), filters.to);
   if (filters.priority === 'unset') where.push('r.priority IS NULL');
   else if (filters.priority) add('r.priority = ?::request_priority', filters.priority);
   // % and _ typed by the user are matched literally.
@@ -266,15 +270,13 @@ async function overview(buildingId) {
 
 /**
  * FR-22 / FR-50: the maintenance report for requests submitted in a period
- * ({ from, to } as Bangladesh days, either may be null). Hours and ratings are
+ * ({ from, to } as days, either may be null). Hours and ratings are
  * averages over the requests that have them; null when there are none.
  * Resolution time runs from submission to the latest resolve (a reopened request
  * counts the time until it was resolved again).
  */
 async function report(buildingId, { from = null, to = null } = {}) {
-  const period = `r.building_id = $1
-    AND ($2::date IS NULL OR r.submitted_at >= $2::date::timestamp AT TIME ZONE 'Asia/Dhaka')
-    AND ($3::date IS NULL OR r.submitted_at < ($3::date + 1)::timestamp AT TIME ZONE 'Asia/Dhaka')`;
+  const period = `r.building_id = $1 AND ($2::date IS NULL OR ${SUBMITTED_FROM('$2')}) AND ($3::date IS NULL OR ${SUBMITTED_UNTIL('$3')})`;
   const params = [buildingId, from, to];
   const hours = 'round((avg(extract(epoch FROM r.resolved_at - r.submitted_at)) / 3600)::numeric, 1)';
   const stars = 'round(avg(rr.rating)::numeric, 2)';

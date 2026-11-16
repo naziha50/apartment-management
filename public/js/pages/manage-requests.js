@@ -11,7 +11,7 @@ import { api } from '../api.js';
 import { $, el, replace } from '../dom.js';
 import { CATEGORY_LABELS, NEEDS_ACTION, PRIORITY_LABELS, STATUS_LABELS, categoryLabel, formatDate, overdueBadge, priorityBadge, statusBadge } from '../format.js';
 import { initLayout } from '../layout.js';
-import { animateList, emptyState, errorState, pagination, showFieldErrors, toast, withBusy } from '../ui.js';
+import { animateList, dateRangeOk, emptyState, errorState, pagination, toast, withBusy } from '../ui.js';
 
 const card = $('#content');
 const filterBox = $('#filters');
@@ -62,12 +62,8 @@ function filterForm(params, onChange, options) {
       el('a', { class: 'btn btn-secondary', href: location.pathname, text: 'Clear' }),
     ),
   );
-  // A backwards date range is explained next to the field instead of being sent (the server checks it too).
   const apply = () => {
-    const { from, to } = form.elements;
-    const backwards = from.value && to.value && from.value > to.value;
-    showFieldErrors(form, backwards ? { to: 'The end date must be on or after the start date.' } : {});
-    if (!backwards) onChange(new FormData(form));
+    if (dateRangeOk(form)) onChange(new FormData(form));
   };
   form.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -150,7 +146,7 @@ async function load(all) {
 
 /**
  * FR-38: downloads the requests matching the current filters (every page) as CSV.
- * Fetched with the "Viewing as" header, then saved through a temporary link.
+ * Fetched with the "Viewing as" header, then saved through a temporary link under the name the server gives it.
  */
 async function downloadCsv(button) {
   const params = new URLSearchParams(location.search);
@@ -159,7 +155,7 @@ async function downloadCsv(button) {
     try {
       const file = await api.blob(`/api/v1/maintenance/export.csv?${params}`);
       const url = URL.createObjectURL(file);
-      const link = el('a', { href: url, download: `maintenance-requests-${new Date().toISOString().slice(0, 10)}.csv` });
+      const link = el('a', { href: url, download: file.name });
       document.body.append(link);
       link.click();
       link.remove();

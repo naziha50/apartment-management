@@ -2,8 +2,7 @@
 
 A web application that brings the daily work of an apartment building into one place:
 residents, units, bills and payments, maintenance requests, announcements and reports.
-It is written for apartment buildings in Bangladesh (amounts in BDT, times in Asia/Dhaka,
-English and Bangla text).
+It is written for apartment buildings in Bangladesh (amounts in BDT, English and Bangla text).
 
 CSE327 – Software Engineering project, built in sprints from the
 **Software Requirements Specification (SRS) v1.3**.
@@ -99,8 +98,8 @@ New modules (billing, announcements, …) will follow the same pattern next to `
 | **FR-19** Assign to staff | Pick an active staff member, reassign later. Every change is kept in the history and the new assignee is notified |
 | **FR-20** Status and progress | Only the moves in SRS Appendix A are offered. *Resolved* needs a note. Notes can be internal (hidden from the resident) and can carry up to 3 photos. Updates are saved with name and time and cannot be edited |
 | **FR-21** Track my requests | Residents see status, priority, assignee and non-internal notes of their own requests only |
-| **FR-22** History and reports | Lists with filters by status, category, priority, apartment, assigned staff (or nobody), overdue, and submission date range (Bangladesh days), plus search by title or number; 20 per page. A **Report** page (admin, staff with `reports.view`) shows, for any period: requests per status and category, average time to resolve overall, per category and per staff member, and the 5 apartments with the most requests |
-| **FR-38** Export to CSV | "Download CSV" on the requests page saves every request matching the current filters (not just one page) as a spreadsheet file. It opens correctly in Excel and Google Sheets, including Bangla names; dates are in Bangladesh time. Text a spreadsheet would run as a formula (e.g. a title starting with `=`) is kept as plain text. Internal notes are never included |
+| **FR-22** History and reports | Lists with filters by status, category, priority, apartment, assigned staff (or nobody), overdue, and submission date range, plus search by title or number; 20 per page. A **Report** page (admin, staff with `reports.view`) shows, for any period: requests per status and category, average time to resolve overall, per category and per staff member, and the 5 apartments with the most requests |
+| **FR-38** Export to CSV | "Download CSV" on the requests page saves every request matching the current filters (not just one page) as a spreadsheet file. It opens correctly in Excel and Google Sheets, including Bangla names. Text a spreadsheet would run as a formula (e.g. a title starting with `=`) is kept as plain text. Internal notes are never included |
 | **FR-25 / FR-26** Notifications | Bell with unread count on every page, kept current while the page is open; list of past notifications, mark one or all as read; clicking opens the request |
 | **FR-29** Maintenance overview | Admin home page shows overdue requests (highlighted), counts per status, unassigned and open high-priority requests; each count links to the filtered list |
 | **FR-35** Cancel, confirm, reopen | Cancel while *Submitted*; confirm a *Resolved* request (→ *Closed*) or reopen it within 7 days with a comment |
@@ -344,7 +343,8 @@ tab. A short message (also read out by screen readers) says when something new a
 ## 7. API reference
 
 All endpoints are under `/api/v1` and need a "Viewing as" user (`X-User-Id` header), except
-`/health` and `/dev/users`. Errors always look like
+`/health` and `/dev/users`. Times are sent as ISO text with their offset, e.g. `2026-11-16T08:28:00.000+06:00`;
+calendar days (due dates, filter dates) as `YYYY-MM-DD`. Errors always look like
 `{ "error": { "code": "...", "message": "...", "fields": { ... } } }`.
 
 ### Maintenance (`/api/v1/maintenance`)
@@ -352,7 +352,7 @@ All endpoints are under `/api/v1` and need a "Viewing as" user (`X-User-Id` head
 | Method & path | Who | What it does |
 |---|---|---|
 | `POST /requests` | Residents | Submit a request (FR-16, FR-17). Body: `title` (3–120 chars), `description`, `category`, `location` (`unit` or `common_area`), and `unitId` only if the resident has more than one unit. JSON, or `multipart/form-data` with up to 3 `photos`. Returns 201 with the new request |
-| `GET /requests` | Everyone | Requests you may see, newest activity first, 20 per page. Filters: `status` (comma-separated), `category`, `priority` (`high`, `medium`, `low`, `unset`), `q` (title or number), `assigned=none` or `assignedTo` (a staff id), `unitId`, `from` / `to` (`YYYY-MM-DD`, the Bangladesh day it was submitted; `to` includes the whole day), `overdue=1` (BR-17), `page`. `sort=oldest` lists the longest-waiting first (FR-18). Returns `{ items, page, pageSize, total }` |
+| `GET /requests` | Everyone | Requests you may see, newest activity first, 20 per page. Filters: `status` (comma-separated), `category`, `priority` (`high`, `medium`, `low`, `unset`), `q` (title or number), `assigned=none` or `assignedTo` (a staff id), `unitId`, `from` / `to` (`YYYY-MM-DD`, the day it was submitted; `to` includes the whole day), `overdue=1` (BR-17), `page`. `sort=oldest` lists the longest-waiting first (FR-18). Returns `{ items, page, pageSize, total }` |
 | `GET /requests/:id` | Everyone | One request (like every request in the API: with `dueAt` and `overdue`, BR-17, and `scheduledTask` `{ id, dueDate }` when a scheduled task created it, BR-25) with `updates` (history), `attachments`, `rating`, `autoCloseAt` and `allowed` (what you may do now: `transitions`, `assign`, `addNote`, `setPriority`, `rate`). Requests you may not see answer 404 |
 | `GET /requests/:id/attachments/:attId` | Everyone | One photo, with the same access rule as its request |
 | `POST /requests/:id/transition` | Depends on the move | Change the status. Body: `to`, plus `priority` when reviewing and `note` when rejecting, resolving or reopening. A move not allowed now answers 409 `TRANSITION_NOT_ALLOWED` |
@@ -363,8 +363,8 @@ All endpoints are under `/api/v1` and need a "Viewing as" user (`X-User-Id` head
 | `GET /overview` | Admin, staff with `maintenance.view_all` | Counts for the home page: per status, `unassigned`, `high_open`, `overdue` |
 | `GET /staff` | Admin, staff with `maintenance.assign` | Active staff, for the "assign to" picker |
 | `GET /export.csv` | Admin and staff | The request list as CSV (FR-38), with the same filters and the same "who sees what" as `GET /requests`, every page at once (up to 10,000 rows; more answers 400 asking for narrower filters). UTF-8 with a byte-order mark; formula-like cells are prefixed with `'` |
-| `GET /report` | Admin, staff with `reports.view` | The maintenance report for requests submitted between `from` and `to` (optional `YYYY-MM-DD`, Bangladesh days): `byStatus`, `overall`, `byCategory` (busiest first), `topUnits` (5, problems inside the apartment only) and `byStaff`. Each figure set has `requests`, `resolved`, `avgHoursToResolve`, `ratings` and `avgRating` (null when there is nothing to average). Time to resolve runs from submission to the latest resolve |
-| `GET /scheduled-tasks` | Admin, staff with `maintenance.assign` | Recurring jobs (FR-49): active ones soonest first, then paused ones. `?dueWithinDays=90` keeps active tasks due in that many days. Each has `nextDueDate` and `createsRequestOn` (7 days earlier, BR-25), both `YYYY-MM-DD` Bangladesh days |
+| `GET /report` | Admin, staff with `reports.view` | The maintenance report for requests submitted between `from` and `to` (optional `YYYY-MM-DD`): `byStatus`, `overall`, `byCategory` (busiest first), `topUnits` (5, problems inside the apartment only) and `byStaff`. Each figure set has `requests`, `resolved`, `avgHoursToResolve`, `ratings` and `avgRating` (null when there is nothing to average). Time to resolve runs from submission to the latest resolve |
+| `GET /scheduled-tasks` | Admin, staff with `maintenance.assign` | Recurring jobs (FR-49): active ones soonest first, then paused ones. `?dueWithinDays=90` keeps active tasks due in that many days. Each has `nextDueDate` and `createsRequestOn` (7 days earlier, BR-25), both `YYYY-MM-DD`. The response also has `today`, for the date picker |
 | `POST /scheduled-tasks` | Admin, staff with `maintenance.assign` | Create one. Body: `title`, optional `description`, `category`, `intervalMonths` (1–24), `nextDueDate` (today or later), optional `defaultAssigneeId` (an active staff member) |
 | `GET /scheduled-tasks/:id` | Same | One task |
 | `PATCH /scheduled-tasks/:id` | Same | Change any of those fields (fields not sent stay as they are); `{ "paused": true }` pauses it, `false` resumes it |
@@ -440,9 +440,10 @@ npm test
 | File | What it checks |
 |---|---|
 | `tests/state-machine.test.js` | The rules on their own: who may change the status, assign, add notes, change the priority or rate; deadlines and overdue (BR-17) |
+| `tests/dates.test.js` | Days and times: which day a moment falls on, adding days, impossible days, the offset on every time |
 | `tests/csv.test.js` | The CSV helper: Bangla and quotes survive, formulas stay text |
 | `tests/uploads.test.js` | Photo checks: real images pass, renamed files are refused |
-| `tests/api.test.mjs` | The real API over HTTP: submitting, who sees what, a request's whole life, internal notes and their photos, filters (including unit, staff and Bangladesh-day date range), the overview, ratings, auto-close, notifications, uploads, overdue requests, the report, the CSV export, scheduled tasks and the requests they create (including two server processes at once) |
+| `tests/api.test.mjs` | The real API over HTTP: submitting, who sees what, a request's whole life, internal notes and their photos, filters (including unit, staff and date range), the overview, ratings, auto-close, notifications, uploads, overdue requests, the report, the CSV export, scheduled tasks and the requests they create (including two server processes at once) |
 
 The API tests use a **separate test database** (`DATABASE_URL` with `_test` added, or
 `TEST_DATABASE_URL`). It is created if needed and **wiped and re-seeded on every run**, so your
@@ -450,7 +451,7 @@ development data is never touched; the tests refuse to run against the developme
 Test photos go to a temporary folder that is deleted afterwards. If PostgreSQL is not running,
 the API tests are skipped with the reason shown and the other tests still run.
 
-Current result: **34 tests, all passing.**
+Current result: **39 tests, all passing**, whatever time zone the computer itself is set to (e.g. `TZ=America/Regina npm test`).
 
 ---
 
@@ -464,8 +465,15 @@ Current result: **34 tests, all passing.**
 - User data is inserted only with `el()` / `textContent` from `public/js/dom.js`, never
   `innerHTML` (NFR-05).
 - No inline `<script>` or `style=""`: the security policy only allows files from this server.
-- Statuses always have a text label as well as a colour (UI-06). Dates are shown in Bangladesh time.
+- Statuses always have a text label as well as a colour (UI-06).
 - Animations are served from `node_modules` at `/vendor/…` and skipped for reduced motion.
+
+### Time zone
+
+The app has one time zone, set once in `server/config.js`; no other code names it. The server
+process, every database session and the database's default (set by `npm run db:migrate`) use it,
+so SQL simply uses `CURRENT_DATE` and dates. Pages show the days and times the server sends
+exactly as sent, so the computer or browser's own time zone never changes what anyone sees.
 
 ---
 
@@ -480,6 +488,7 @@ server/
   lib/errors.js     API errors with plain-language messages
   lib/validate.js   input checking that reports every field problem at once
   lib/csv.js        CSV files for spreadsheets (FR-38)
+  lib/dates.js      days and times in the app's time zone: today, adding days, ISO times
   middleware/       current-user.js ("Viewing as" → req.user), error-handler.js, security.js (headers)
   modules/          one folder per module
     users/            lists users and answers /me
@@ -501,7 +510,7 @@ public/
   css/main.css                the one stylesheet
   js/api.js                   fetch wrapper that sends X-User-Id
   js/dom.js                   safe element helpers
-  js/format.js                labels, badges, Bangladesh-time dates
+  js/format.js                labels, badges, dates
   js/layout.js                shared page frame and the notification bell
   js/photos.js                photo checks, previews and photo fields
   js/ui.js                    animations, toasts, form errors, paging, empty and error states

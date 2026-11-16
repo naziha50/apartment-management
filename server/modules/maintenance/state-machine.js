@@ -10,6 +10,7 @@
  *       └─► rejected
  */
 const { can } = require('../../middleware/current-user');
+const { startOfDay, addDays } = require('../../lib/dates');
 const { FINAL_STATUSES, NEEDS_ACTION, RESOLVED_DAYS, RATING_DAYS, TARGET_HOURS } = require('./maintenance.constants');
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -95,11 +96,11 @@ const canRate = (request, user, ctx) => ratingProblem(request, user, ctx) === nu
 /**
  * BR-17: when the request must be resolved (or, without a priority, reviewed) by.
  * BR-25: a request from a scheduled task is due by the end of the task's due day
- * (a 'YYYY-MM-DD' Bangladesh day, UTC+6), not by the priority target.
+ * (a 'YYYY-MM-DD' day), not by the priority target.
  */
 const deadline = (request) =>
   request.due_date
-    ? new Date(Date.parse(`${request.due_date}T00:00:00+06:00`) + DAY_MS)
+    ? startOfDay(addDays(request.due_date, 1))
     : new Date(new Date(request.submitted_at).getTime() + TARGET_HOURS[request.priority || 'unset'] * HOUR_MS);
 
 /** BR-17: still needs action and its deadline has passed. Same rule as OVERDUE_SQL in the repository. */

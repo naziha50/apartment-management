@@ -9,6 +9,7 @@
  *   v.throwIfInvalid();   // 400 with { fields: { title: '...' } }
  */
 const { badRequest } = require('./errors');
+const { isDay } = require('./dates');
 
 /** "a category", "an apartment" */
 const withArticle = (label) => `${/^[aeiou]/i.test(label) ? 'an' : 'a'} ${label.toLowerCase()}`;
@@ -66,7 +67,7 @@ class Validator {
     return n;
   }
 
-  /** A calendar date as YYYY-MM-DD (what <input type="date"> sends), or null if empty and not required. */
+  /** A calendar day as YYYY-MM-DD (what <input type="date"> sends), or null if empty and not required. */
   date(field, { required = true, label = field } = {}) {
     const raw = this.source[field];
     if (raw == null || raw === '') {
@@ -74,13 +75,19 @@ class Validator {
       return null;
     }
     const value = String(raw);
-    const d = new Date(`${value}T00:00:00Z`);
-    // The round trip rejects dates that do not exist, such as 2026-02-30.
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== value) {
+    if (!isDay(value)) {
       this.fail(field, `${label} must be a real date.`);
       return null;
     }
     return value;
+  }
+
+  /** Optional `from` / `to` days (FR-22); the end may not come before the start. */
+  dateRange() {
+    const from = this.date('from', { required: false, label: 'Start date' });
+    const to = this.date('to', { required: false, label: 'End date' });
+    if (from && to && from > to) this.fail('to', 'The end date must be on or after the start date.'); // same-format days compare as text
+    return { from, to };
   }
 
   get valid() {
@@ -92,4 +99,10 @@ class Validator {
   }
 }
 
-module.exports = { Validator };
+/** A positive whole-number id from the URL, or null (callers answer 404, never 500). */
+function toId(raw) {
+  const n = Number(raw);
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
+module.exports = { Validator, toId };

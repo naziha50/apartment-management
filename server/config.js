@@ -5,6 +5,11 @@
  */
 const path = require('node:path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env'), quiet: true });
+// The app's one time zone. The server process, every database session and the database's
+// default all use it (see db/pool.js and db/migrate.js), so no other code names a time zone.
+// Not read from .env on purpose: the computer's own zone must never leak in.
+const TIME_ZONE = 'Asia/Dhaka';
+process.env.TZ = TIME_ZONE;
 
 const int = (name, fallback) => {
   const value = Number.parseInt(process.env[name] ?? '', 10);
@@ -15,7 +20,7 @@ module.exports = Object.freeze({
   env: process.env.NODE_ENV || 'development',
   port: int('PORT', 3000),
   databaseUrl: process.env.DATABASE_URL || 'postgres://localhost:5432/apartment_maintenance',
-  timezone: 'Asia/Dhaka', // all dates and times in the SRS are Bangladesh time (§2.6)
+  timezone: TIME_ZONE,
   // BR-19: request photos are kept on disk, outside /public.
   uploads: {
     dir: path.resolve(__dirname, '..', process.env.UPLOAD_DIR || './storage/uploads'),

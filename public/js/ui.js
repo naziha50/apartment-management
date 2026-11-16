@@ -105,6 +105,17 @@ export function showFieldErrors(form, fields = {}, message) {
   first?.focus();
 }
 
+/**
+ * FR-22: true when the form's "from" / "to" dates are in order; otherwise explains it next to
+ * "to" and returns false, so the form is not sent (the server checks it too).
+ */
+export function dateRangeOk(form) {
+  const { from, to } = form.elements;
+  const backwards = Boolean(from.value && to.value && from.value > to.value);
+  showFieldErrors(form, backwards ? { to: 'The end date must be on or after the start date.' } : {});
+  return !backwards;
+}
+
 /** Disables a button and shows a spinner while `fn` runs, so a form is not sent twice. */
 export async function withBusy(button, fn, label = 'Sending…') {
   const original = [...button.childNodes];

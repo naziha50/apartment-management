@@ -96,6 +96,7 @@ async function call(userId, method, url, body) {
 }
 
 const it = (name, fn) => test(name, { skip }, fn);
+const { dayOf, addDays } = require('../server/lib/dates');
 
 // Demo users by email, so the tests do not depend on id numbers.
 const U = {};
@@ -103,6 +104,19 @@ const state = {};
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
 
 // ------------------------------------------------------------------ tests
+it("every database session uses the app's time zone, even one that does not ask for it", async () => {
+  // Like psql or the setup scripts: no time zone in the connection settings.
+  const { Client } = require('pg');
+  const config = require('../server/config');
+  const plain = new Client({ connectionString: testUrl });
+  await plain.connect();
+  try {
+    assert.equal((await plain.query('SHOW timezone')).rows[0].TimeZone, config.timezone);
+  } finally {
+    await plain.end();
+  }
+});
+
 it('health check and demo users', async () => {
   const health = await call(null, 'GET', '/health');
   assert.equal(health.status, 200);
@@ -136,6 +150,8 @@ it('a resident submits a request; resident and unit are filled in by the server 
   assert.equal(res.status, 201);
   assert.equal(res.body.status, 'submitted');
   assert.match(res.body.requestNumber, /^MR-\d{4}-\d{5}$/);
+  assert.match(res.body.submittedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}\+06:00$/, "times are sent with the app's offset, never UTC");
+  assert.match(res.body.dueAt, /\+06:00$/);
   assert.equal(res.body.submittedBy.id, U.tanvir, 'the submitter cannot be faked');
   assert.ok(res.body.unit, 'the only apartment is filled in');
   state.id = res.body.id;
@@ -259,9 +275,9 @@ it('filters by unit, assigned staff and submission date (FR-22)', async () => {
   assert.deepEqual(await ids({ assignedTo: U.jamal }), [b]);
   assert.deepEqual(await ids({ assignedTo: U.karim }), []);
 
-  // Dates are Bangladesh days: 18:30 UTC on 1 Oct is already 2 Oct in Dhaka.
+  // Days are the app's days (UTC+6): 18:30 UTC on 1 Oct is already 2 Oct.
   await pool.query("UPDATE maintenance_requests SET submitted_at = '2026-10-01T18:30:00Z' WHERE id = $1", [a]);
-  assert.deepEqual(await ids({ from: '2026-10-02', to: '2026-10-02' }), [a], 'the whole Dhaka day');
+  assert.deepEqual(await ids({ from: '2026-10-02', to: '2026-10-02' }), [a], 'the whole day');
   assert.deepEqual(await ids({ to: '2026-10-01' }), []);
   assert.deepEqual(await ids({ from: '2026-10-03' }), [b]);
 
@@ -291,7 +307,7 @@ it('maintenance report: counts, time to resolve, busiest units and ratings for a
   const b = await make('Report B', 'plumbing');
   const c = await make('Report C', 'electrical');
   const d = await make('Report D', 'cleaning', 'common_area');
-  // A day no other test uses: 10 Jan 2025, 10:00 in Dhaka.
+  // A day no other test uses: 10 Jan 2025, 10:00.
   await pool.query("UPDATE maintenance_requests SET submitted_at = '2025-01-10T04:00:00Z' WHERE id = ANY($1)", [[a, b, c, d]]);
 
   const finish = async (id, hours) => {
@@ -364,7 +380,7 @@ it('CSV export: same filters and access as the list, safe in a spreadsheet (FR-3
 });
 
 it('scheduled tasks: create, check, list, edit, pause and resume (FR-49, BR-25)', async () => {
-  const day = (offset) => new Date(Date.now() + offset * 86400000).toLocaleDateString('sv-SE', { timeZone: 'Asia/Dhaka' });
+  const day = (offset) => addDays(dayOf(), offset);
   const url = '/maintenance/scheduled-tasks';
 
   for (const who of [U.karim, U.jamal, U.tanvir]) assert.equal((await call(who, 'GET', url)).status, 403, 'needs maintenance.assign');
@@ -405,7 +421,7 @@ it('scheduled tasks: create, check, list, edit, pause and resume (FR-49, BR-25)'
 
 it('scheduled tasks become requests 7 days before they are due, exactly once (BR-25, FR-49)', async () => {
   const { createDueRequests } = require('../server/modules/maintenance/scheduled-tasks.service');
-  const day = (offset) => new Date(Date.now() + offset * 86400000).toLocaleDateString('sv-SE', { timeZone: 'Asia/Dhaka' });
+  const day = (offset) => addDays(dayOf(), offset);
   const url = '/maintenance/scheduled-tasks';
   const make = async (body) => (await call(U.admin, 'POST', url, { category: 'lift', intervalMonths: 1, ...body })).body;
   const task = async (id) => (await call(U.admin, 'GET', `${url}/${id}`)).body;
@@ -431,7 +447,7 @@ it('scheduled tasks become requests 7 days before they are due, exactly once (BR
   assert.equal(r.submittedBy, null, 'submitted by "System"');
   assert.equal(r.assignedTo.id, U.jamal);
   assert.deepEqual(r.scheduledTask, { id: soon.id, dueDate: day(5) });
-  assert.equal(r.dueAt, new Date(Date.parse(`${day(5)}T00:00:00+06:00`) + 86400000).toISOString(), 'deadline: end of the due day');
+  assert.equal(r.dueAt, `${day(6)}T00:00:00.000+06:00`, 'deadline: end of the due day');
   assert.equal(r.overdue, false);
   assert.match(r.updates[0].note, /^Created from the scheduled task "Generator check", due /);
   assert.equal(r.updates[0].author, 'System');

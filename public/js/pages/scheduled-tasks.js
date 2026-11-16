@@ -4,24 +4,21 @@
  * see what is due in the next 90 days. The server creates each job's request
  * 7 days before its due date.
  *
- * Due dates are Bangladesh calendar days, sent and shown as YYYY-MM-DD from the API.
+ * Due dates are calendar days, sent and received as YYYY-MM-DD.
  */
 import { api } from '../api.js';
 import { $, el, replace } from '../dom.js';
-import { CATEGORY_LABELS, categoryLabel } from '../format.js';
+import { CATEGORY_LABELS, categoryLabel, formatDate } from '../format.js';
 import { initLayout } from '../layout.js';
 import { animateList, emptyState, errorState, showFieldErrors, toast, withBusy } from '../ui.js';
 
 const editorBox = $('#editor');
 const content = $('#content');
 
-// Calendar days from the API ('2026-12-16'); formatted as UTC so the day never shifts.
-const DAY = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'UTC' });
-const dayText = (ymd) => DAY.format(new Date(`${ymd}T00:00:00Z`));
-const todayInDhaka = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Dhaka' });
 const every = (months) => (months === 1 ? 'Every month' : `Every ${months} months`);
 
 let staff = [];
+let today = ''; // from the server, so the browser's own date never matters
 
 // The hint goes under the control, so every control in a row starts at the same height.
 const field = (id, label, control, hint) =>
@@ -41,7 +38,7 @@ function editor(task) {
     field(
       't-due',
       'Next due date',
-      el('input', { id: 't-due', name: 'nextDueDate', type: 'date', required: true, min: todayInDhaka(), value: task?.nextDueDate || '', 'aria-describedby': 't-due-hint' }),
+      el('input', { id: 't-due', name: 'nextDueDate', type: 'date', required: true, min: today, value: task?.nextDueDate || '', 'aria-describedby': 't-due-hint' }),
       'The request is created 7 days before this date.',
     ),
     field(
@@ -73,7 +70,7 @@ function editor(task) {
           const saved = task
             ? await api.patch(`/maintenance/scheduled-tasks/${task.id}`, body)
             : await api.post('/maintenance/scheduled-tasks', body);
-          toast(task ? `“${saved.title}” saved.` : `“${saved.title}” added. Its request is created on ${dayText(saved.createsRequestOn)}.`, 'ok');
+          toast(task ? `“${saved.title}” saved.` : `“${saved.title}” added. Its request is created on ${formatDate(saved.createsRequestOn)}.`, 'ok');
           showEditor(null);
           await load();
         } catch (err) {
@@ -125,8 +122,8 @@ function table(items) {
         el('strong', { text: t.title }),
         el('div', { class: 'muted small', text: `${categoryLabel(t.category)} · ${every(t.intervalMonths)}` }),
       ),
-      el('td', { 'data-label': 'Next due', text: dayText(t.nextDueDate) }),
-      el('td', { 'data-label': 'Request created', text: t.paused ? '— (paused)' : dayText(t.createsRequestOn) }),
+      el('td', { 'data-label': 'Next due', text: formatDate(t.nextDueDate) }),
+      el('td', { 'data-label': 'Request created', text: t.paused ? '— (paused)' : formatDate(t.createsRequestOn) }),
       el('td', { 'data-label': 'Assigned to', text: assignee }),
       el('td', { 'data-label': 'Status' }, el('span', { class: `badge ${t.paused ? 'status-cancelled' : 'status-resolved'}`, text: t.paused ? 'Paused' : 'Active' })),
       el('td', { 'data-label': 'Actions' }, el('div', { class: 'row' }, edit, pause)),
@@ -158,7 +155,12 @@ function viewPicker(soon) {
 async function load() {
   const soon = new URLSearchParams(location.search).get('due') === '90';
   try {
-    const { items } = await api.get(`/maintenance/scheduled-tasks${soon ? '?dueWithinDays=90' : ''}`);
+    const data = await api.get(`/maintenance/scheduled-tasks${soon ? '?dueWithinDays=90' : ''}`);
+    const { items } = data;
+    if (today !== data.today) {
+      today = data.today;
+      $('#t-due')?.setAttribute('min', today); // the form was drawn before the first answer
+    }
     replace(
       content,
       viewPicker(soon),

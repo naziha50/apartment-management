@@ -10,7 +10,7 @@ import { api } from '../api.js';
 import { $, el, replace } from '../dom.js';
 import { STATUS_LABELS, categoryLabel, formatDate } from '../format.js';
 import { initLayout } from '../layout.js';
-import { animateIn, countUp, emptyState, errorState, showFieldErrors } from '../ui.js';
+import { animateIn, countUp, dateRangeOk, emptyState, errorState } from '../ui.js';
 
 const content = $('#content');
 const periodBox = $('#period');
@@ -59,12 +59,7 @@ function periodForm() {
   );
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const { from, to } = form.elements;
-    if (from.value && to.value && from.value > to.value) {
-      showFieldErrors(form, { to: 'The end date must be on or after the start date.' });
-      return;
-    }
-    showFieldErrors(form, {});
+    if (!dateRangeOk(form)) return;
     const clean = new URLSearchParams([...new FormData(form)].filter(([, v]) => v !== ''));
     history.pushState(null, '', `${location.pathname}${clean.size ? `?${clean}` : ''}`);
     load();

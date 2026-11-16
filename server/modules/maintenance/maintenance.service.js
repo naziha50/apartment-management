@@ -14,7 +14,8 @@ const uploads = require('./uploads');
 const sm = require('./state-machine');
 const notifications = require('../notifications/notifications.service');
 const { CATEGORIES, LOCATIONS, STATUSES, PRIORITIES, RESOLVED_DAYS } = require('./maintenance.constants');
-const { Validator } = require('../../lib/validate');
+const { Validator, toId } = require('../../lib/validate');
+const { dayOf, toIso } = require('../../lib/dates');
 const { toCsv } = require('../../lib/csv');
 const { forbidden, notFound, conflict, badRequest } = require('../../lib/errors');
 const { can } = require('../../middleware/current-user');
@@ -38,10 +39,10 @@ function toDto(r) {
     resolvedAt: r.resolved_at,
     // BR-18: when a resolved request will close by itself if the resident does nothing.
     autoCloseAt: r.status === 'resolved' && r.resolved_at
-      ? new Date(new Date(r.resolved_at).getTime() + RESOLVED_DAYS * 24 * 60 * 60 * 1000).toISOString()
+      ? toIso(new Date(r.resolved_at).getTime() + RESOLVED_DAYS * 24 * 60 * 60 * 1000)
       : null,
     // BR-17: the target time and whether it has passed (only while the request still needs action).
-    dueAt: sm.deadline(r).toISOString(),
+    dueAt: toIso(sm.deadline(r)),
     overdue: sm.isOverdue(r),
     // BR-25: set when the request was created from a scheduled task, for that due date.
     scheduledTask: r.scheduled_task_id ? { id: Number(r.scheduled_task_id), dueDate: r.due_date } : null,
@@ -125,11 +126,6 @@ function canView(row, user) {
   return Number(row.submitted_by) === user.id;
 }
 
-/** A positive whole-number id from the URL, or null. */
-function toId(raw) {
-  const n = Number(raw);
-  return Number.isSafeInteger(n) && n > 0 ? n : null;
-}
 
 /**
  * The request row, but only if this user may see it; otherwise 404, never 403,
@@ -168,11 +164,8 @@ function parseFilters(query = {}) {
     q: typeof query.q === 'string' ? query.q.trim().slice(0, 100) || null : null,
     unitId: v.id('unitId', { required: false, label: 'Apartment' }),
     assignedTo: v.id('assignedTo', { required: false, label: 'Staff member' }),
-    from: v.date('from', { required: false, label: 'Start date' }),
-    to: v.date('to', { required: false, label: 'End date' }),
+    ...v.dateRange(),
   };
-  // Dates in the same YYYY-MM-DD form compare correctly as text.
-  if (filters.from && filters.to && filters.from > filters.to) v.fail('to', 'The end date must be on or after the start date.');
   v.throwIfInvalid('Some filters are not valid.');
   return filters;
 }
@@ -191,9 +184,8 @@ async function listRequests(user, query = {}) {
 // shortcut: built in memory, capped at EXPORT_MAX rows (years of requests for one building); stream it in batches if a building ever needs more.
 const EXPORT_MAX = 10000;
 
-// Dates in the export: Bangladesh time (§2.6), in a form spreadsheets sort correctly ("2026-11-16 14:05").
-const CSV_TIME = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Dhaka', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-const csvTime = (d) => (d ? CSV_TIME.format(new Date(d)) : '');
+// Times in the export, in a form spreadsheets sort correctly ("2026-11-16 14:05").
+const csvTime = (d) => (d ? toIso(d).slice(0, 16).replace('T', ' ') : '');
 // "water_supply" → "Water supply"; every category, status, priority and location reads well this way.
 const words = (v) => (v ? v[0].toUpperCase() + v.slice(1).replaceAll('_', ' ') : '');
 
@@ -227,7 +219,7 @@ async function exportRequests(user, query = {}) {
     throw badRequest(`${total} requests match, but one export holds at most ${EXPORT_MAX}. Narrow the filters, for example with a date range.`);
   }
   const items = rows.map(toDto);
-  const today = CSV_TIME.format(new Date()).slice(0, 10);
+  const today = dayOf();
   return {
     filename: `maintenance-requests-${today}.csv`,
     body: toCsv(EXPORT_COLUMNS.map(([h]) => h), items.map((r) => EXPORT_COLUMNS.map(([, get]) => get(r)))),
@@ -391,13 +383,11 @@ async function overview(user) {
 /* ------------------------------------------------------------ FR-19 assign */
 
 /** Staff the user may assign requests to. */
-/** FR-22 / FR-50: the maintenance report for requests submitted between two Bangladesh days (both optional). */
+/** FR-22 / FR-50: the maintenance report for requests submitted between two days (both optional). */
 async function report(user, query = {}) {
   if (!can(user, 'reports.view')) throw forbidden('Only the admin and staff with the reports permission can view the maintenance report.');
   const v = new Validator(query);
-  const from = v.date('from', { required: false, label: 'Start date' });
-  const to = v.date('to', { required: false, label: 'End date' });
-  if (from && to && from > to) v.fail('to', 'The end date must be on or after the start date.');
+  const { from, to } = v.dateRange();
   v.throwIfInvalid('Please choose a valid period.');
   return { from, to, ...(await repo.report(user.buildingId, { from, to })) };
 }

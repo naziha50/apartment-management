@@ -48,10 +48,19 @@ export const overdueBadge = () => el('span', { class: 'badge badge-overdue', tex
 export const priorityBadge = (p) =>
   el('span', { class: `badge prio-${p || 'unset'}`, text: p ? PRIORITY_LABELS[p] : 'Not set yet' });
 
-// All dates and times in the SRS are Bangladesh time (§2.6), wherever the viewer is.
-const TIME_ZONE = 'Asia/Dhaka';
-const DATE_TIME = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: TIME_ZONE });
-const DATE = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: TIME_ZONE });
+// The server sends days ('2026-12-16') and times ('2026-12-16T14:05:00.000+06:00') already in the
+// app's time zone, so they are shown exactly as sent: the browser's own time zone plays no part.
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const PARTS = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/;
 
-export const formatDateTime = (iso) => (iso ? DATE_TIME.format(new Date(iso)) : '—');
-export const formatDate = (iso) => (iso ? DATE.format(new Date(iso)) : '—');
+/** '2026-12-16…' → '16 Dec 2026' */
+export function formatDate(value) {
+  const m = value && PARTS.exec(value);
+  return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}` : '—';
+}
+
+/** '2026-12-16T14:05…' → '16 Dec 2026, 14:05' */
+export function formatDateTime(value) {
+  const m = value && PARTS.exec(value);
+  return m ? `${formatDate(value)}${m[4] ? `, ${m[4]}:${m[5]}` : ''}` : '—';
+}

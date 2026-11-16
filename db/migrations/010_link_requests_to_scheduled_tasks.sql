@@ -5,7 +5,7 @@
 
 ALTER TABLE maintenance_requests
   ADD COLUMN scheduled_task_id BIGINT REFERENCES scheduled_tasks(id),
-  ADD COLUMN due_date          DATE,                                    -- a Bangladesh calendar day
+  ADD COLUMN due_date          DATE,                                    -- a calendar day
   ADD CHECK ((scheduled_task_id IS NULL) = (due_date IS NULL));
 
 -- One request per task per due date, even if two server processes create them at the same moment.

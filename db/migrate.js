@@ -36,6 +36,11 @@ async function migrate({ databaseUrl, reset = false, log = console.log } = {}) {
   const client = new Client({ connectionString: databaseUrl || config.databaseUrl });
   await client.connect();
   try {
+    // Every session of this database (the app, psql, scripts, backups) gets the app's time
+    // zone by default, so SQL such as CURRENT_DATE never needs to name one.
+    const { rows: [db] } = await client.query('SELECT current_database() AS name');
+    await client.query(`ALTER DATABASE ${client.escapeIdentifier(db.name)} SET timezone TO ${client.escapeLiteral(config.timezone)}`);
+
     if (reset) {
       await client.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
       log('Database reset: all tables dropped.');

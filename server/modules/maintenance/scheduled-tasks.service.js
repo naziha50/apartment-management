@@ -4,21 +4,18 @@
  * servicing, so routine upkeep is never forgotten. Managed by the admin and staff with
  * maintenance.assign (SRS Appendix B). createDueRequests() turns due tasks into requests.
  *
- * Dates are Bangladesh calendar days (§2.6) as 'YYYY-MM-DD' text, never Date objects,
- * so they cannot shift by a day between time zones.
+ * Dates are calendar days as 'YYYY-MM-DD' text, never Date objects, so they cannot shift by a day.
  */
 const db = require('../../db/pool');
 const repo = require('./scheduled-tasks.repository');
 const maintenanceRepo = require('./maintenance.repository');
 const notifications = require('../notifications/notifications.service');
 const { CATEGORIES, SCHEDULE_LEAD_DAYS, MAX_INTERVAL_MONTHS } = require('./maintenance.constants');
-const { Validator } = require('../../lib/validate');
+const { Validator, toId } = require('../../lib/validate');
 const { forbidden, notFound } = require('../../lib/errors');
 const { can } = require('../../middleware/current-user');
 
-const DHAKA_DAY = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Dhaka' }); // formats as YYYY-MM-DD
-const todayInDhaka = () => DHAKA_DAY.format(new Date());
-const addDays = (ymd, days) => new Date(Date.parse(`${ymd}T00:00:00Z`) + days * 86400000).toISOString().slice(0, 10);
+const { dayOf, startOfDay, addDays } = require('../../lib/dates');
 
 function toDto(t) {
   return {
@@ -43,10 +40,6 @@ function requireManager(user) {
   if (!can(user, 'maintenance.assign')) throw forbidden('Only the admin and staff who assign requests can manage scheduled tasks.');
 }
 
-const toId = (raw) => {
-  const n = Number(raw);
-  return Number.isSafeInteger(n) && n > 0 ? n : null;
-};
 
 /**
  * Checks the fields of a new task, or (partial) only the fields an edit sends.
@@ -66,7 +59,7 @@ async function readFields(user, body = {}, { partial }) {
   }
   if (sent('nextDueDate')) {
     const day = v.date('nextDueDate', { label: 'Next due date' });
-    if (day && day < todayInDhaka()) v.fail('nextDueDate', 'The next due date cannot be in the past.');
+    if (day && day < dayOf()) v.fail('nextDueDate', 'The next due date cannot be in the past.');
     out.next_due_date = day;
   }
   // Optional on both; empty or null means "nobody by default".
@@ -83,15 +76,15 @@ async function readFields(user, body = {}, { partial }) {
   return out;
 }
 
-/** FR-49: the building's tasks; `?dueWithinDays=90` keeps active tasks due in that many days. */
+/** FR-49: the building's tasks; `?dueWithinDays=90` keeps active tasks due in that many days. `today` is for the date picker. */
 async function list(user, query = {}) {
   requireManager(user);
   const v = new Validator(query);
   const within = v.id('dueWithinDays', { required: false, label: 'Number of days' });
   if (within > 366) v.fail('dueWithinDays', 'Choose at most 366 days.');
   v.throwIfInvalid('Please choose a valid number of days.');
-  const rows = await repo.list(user.buildingId, { dueBy: within ? addDays(todayInDhaka(), within) : null });
-  return { items: rows.map(toDto) };
+  const rows = await repo.list(user.buildingId, { dueBy: within ? addDays(dayOf(), within) : null });
+  return { items: rows.map(toDto), today: dayOf() };
 }
 
 async function get(user, rawId) {
@@ -130,8 +123,8 @@ async function update(user, rawId, body) {
   return get(user, id);
 }
 
-const DAY_TEXT = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'UTC' });
-const dayText = (ymd) => DAY_TEXT.format(new Date(`${ymd}T00:00:00Z`)); // '2026-12-16' → '16 Dec 2026'
+const DAY_TEXT = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' });
+const dayText = (day) => DAY_TEXT.format(startOfDay(day)); // '2026-12-16' → '16 Dec 2026'
 
 /**
  * BR-25: creates the request for one due task, if any is due, in one transaction:
@@ -186,4 +179,4 @@ async function createDueRequests() {
   return created;
 }
 
-module.exports = { list, get, create, update, createDueRequests, todayInDhaka, addDays };
+module.exports = { list, get, create, update, createDueRequests };

@@ -52,8 +52,9 @@ async function request(method, path, body) {
 }
 
 /**
- * Downloads a file (e.g. a request photo) as a Blob. A plain <img src> cannot
- * send the X-User-Id header, so photos are fetched here and shown from a blob: URL.
+ * Downloads a file (a request photo, a CSV export) as a File named as the server names it.
+ * A plain <img src> or link cannot send the X-User-Id header, so files are fetched here and
+ * shown or saved from a blob: URL.
  * shortcut: needed only while "Viewing as" stands in for login; with a session cookie, <img src> works directly.
  */
 async function blob(url) {
@@ -62,7 +63,8 @@ async function blob(url) {
   if (userId) headers['X-User-Id'] = userId;
   const res = await fetch(url, { headers });
   if (!res.ok) throw new ApiError(res.status, await res.json().catch(() => null));
-  return res.blob();
+  const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || 'download';
+  return new File([await res.blob()], name, { type: res.headers.get('Content-Type') || '' });
 }
 
 export const api = {
