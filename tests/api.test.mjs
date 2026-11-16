@@ -363,6 +363,46 @@ it('CSV export: same filters and access as the list, safe in a spreadsheet (FR-3
   await call(U.sadia, 'POST', `/maintenance/requests/${evil.id}/transition`, { to: 'cancelled' });
 });
 
+it('scheduled tasks: create, check, list, edit, pause and resume (FR-49, BR-25)', async () => {
+  const day = (offset) => new Date(Date.now() + offset * 86400000).toLocaleDateString('sv-SE', { timeZone: 'Asia/Dhaka' });
+  const url = '/maintenance/scheduled-tasks';
+
+  for (const who of [U.karim, U.jamal, U.tanvir]) assert.equal((await call(who, 'GET', url)).status, 403, 'needs maintenance.assign');
+
+  const bad = await call(U.admin, 'POST', url, { title: 'x', category: 'rocket', intervalMonths: 25, nextDueDate: day(-1), defaultAssigneeId: U.tanvir });
+  assert.equal(bad.status, 400);
+  assert.deepEqual(Object.keys(bad.body.error.fields).sort(), ['category', 'defaultAssigneeId', 'intervalMonths', 'nextDueDate', 'title']);
+  assert.match((await call(U.admin, 'POST', url, { title: 'Lift', category: 'lift', intervalMonths: 1, nextDueDate: '2027-02-30' })).body.error.fields.nextDueDate, /real date/);
+
+  const lift = await call(U.admin, 'POST', url, { title: 'Lift servicing', category: 'lift', intervalMonths: 1, nextDueDate: day(30), defaultAssigneeId: U.jamal });
+  assert.equal(lift.status, 201);
+  assert.equal(lift.body.nextDueDate, day(30));
+  assert.equal(lift.body.createsRequestOn, day(23), 'a request is created 7 days before');
+  assert.equal(lift.body.defaultAssignee.id, U.jamal);
+  assert.equal(lift.body.paused, false);
+  const tank = (await call(U.admin, 'POST', url, { title: 'Water tank cleaning', category: 'water_supply', intervalMonths: 6, nextDueDate: day(200) })).body;
+  assert.equal(tank.defaultAssignee, null);
+
+  const ids = async (query = '') => (await call(U.admin, 'GET', `${url}${query}`)).body.items.map((t) => t.id);
+  assert.deepEqual(await ids('?dueWithinDays=90'), [lift.body.id], 'only what is due in 90 days');
+  assert.deepEqual(await ids(), [lift.body.id, tank.id], 'soonest first');
+
+  const one = `${url}/${lift.body.id}`;
+  assert.equal((await call(U.admin, 'PATCH', one, { paused: true })).body.paused, true);
+  assert.deepEqual(await ids('?dueWithinDays=90'), [], 'paused tasks are not due');
+  assert.deepEqual(await ids(), [tank.id, lift.body.id], 'paused ones last');
+  const edited = (await call(U.admin, 'PATCH', one, { paused: false, intervalMonths: 3, defaultAssigneeId: null })).body;
+  assert.equal(edited.paused, false);
+  assert.equal(edited.intervalMonths, 3);
+  assert.equal(edited.defaultAssignee, null);
+  assert.equal(edited.title, 'Lift servicing', 'fields not sent stay as they were');
+
+  assert.equal((await call(U.admin, 'PATCH', one, { paused: 'yes' })).status, 400);
+  assert.equal((await call(U.admin, 'PATCH', one, { title: '' })).status, 400);
+  assert.equal((await call(U.admin, 'PATCH', `${url}/999999`, { paused: true })).status, 404);
+  assert.equal((await call(U.admin, 'GET', `${url}/abc`)).status, 404);
+});
+
 it('photos: checked by content, served only to people who may see the request (BR-19)', async () => {
   const form = (files) => {
     const f = new FormData();

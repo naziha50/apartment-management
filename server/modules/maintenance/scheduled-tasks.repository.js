@@ -1,0 +1,58 @@
+'use strict';
+/**
+ * Database access for scheduled maintenance tasks (FR-49, BR-25). SQL only; the rules
+ * live in scheduled-tasks.service.js. Every value is passed as a parameter (NFR-04).
+ */
+const db = require('../../db/pool');
+
+// Dates go out as 'YYYY-MM-DD' text: node-pg would turn a DATE into a JavaScript Date at
+// the server's local midnight, which shifts the day in other time zones.
+const SELECT = `
+  SELECT t.id, t.title, t.description, t.category, t.interval_months, t.is_paused,
+         to_char(t.next_due_date, 'YYYY-MM-DD') AS next_due_date,
+         t.default_assignee, a.full_name AS default_assignee_name, a.is_active AS default_assignee_active,
+         t.created_at, t.updated_at
+    FROM scheduled_tasks t
+    LEFT JOIN users a ON a.id = t.default_assignee`;
+
+/** The building's tasks: active ones soonest first, then paused ones. `dueBy` keeps only active tasks due on or before that day. */
+async function list(buildingId, { dueBy = null } = {}) {
+  const { rows } = await db.query(
+    `${SELECT}
+      WHERE t.building_id = $1 AND ($2::date IS NULL OR (NOT t.is_paused AND t.next_due_date <= $2::date))
+      ORDER BY t.is_paused, t.next_due_date, t.id`,
+    [buildingId, dueBy],
+  );
+  return rows;
+}
+
+async function findById(buildingId, id) {
+  const { rows } = await db.query(`${SELECT} WHERE t.building_id = $1 AND t.id = $2`, [buildingId, id]);
+  return rows[0] || null;
+}
+
+async function insert(t) {
+  const { rows } = await db.query(
+    `INSERT INTO scheduled_tasks (building_id, title, description, category, interval_months, next_due_date, default_assignee, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+    [t.buildingId, t.title, t.description, t.category, t.intervalMonths, t.nextDueDate, t.defaultAssignee, t.createdBy],
+  );
+  return Number(rows[0].id);
+}
+
+// Columns an edit may change; anything else is refused.
+const UPDATABLE = ['title', 'description', 'category', 'interval_months', 'next_due_date', 'default_assignee', 'is_paused'];
+
+/** Changes some columns of one task of the building; returns false when there is no such task. */
+async function update(buildingId, id, fields) {
+  const keys = Object.keys(fields);
+  if (keys.some((k) => !UPDATABLE.includes(k))) throw new Error(`scheduled task update: column not allowed in ${keys}`);
+  const sets = [...keys.map((k, i) => `${k} = $${i + 3}`), 'updated_at = now()'];
+  const { rowCount } = await db.query(
+    `UPDATE scheduled_tasks SET ${sets.join(', ')} WHERE building_id = $1 AND id = $2`,
+    [buildingId, id, ...keys.map((k) => fields[k])],
+  );
+  return rowCount === 1;
+}
+
+module.exports = { list, findById, insert, update };

@@ -10,6 +10,11 @@
  *                    &unitId=&assignedTo=&from=YYYY-MM-DD&to=YYYY-MM-DD&page=   FR-22, BR-17
  *   GET  /export.csv  the request list as CSV, same filters as /requests (admin, staff)   FR-38
  *   GET  /filter-options  units and staff for the list filters    FR-22
+ *   GET  /scheduled-tasks        recurring jobs (?dueWithinDays=90)   FR-49, BR-25
+ *   POST /scheduled-tasks        create one
+ *                    body { title, description?, category, intervalMonths, nextDueDate, defaultAssigneeId? }
+ *   GET  /scheduled-tasks/:id    one task
+ *   PATCH /scheduled-tasks/:id   edit any of those fields, or pause / resume with { paused }
  *   GET  /report     ?from=&to= (YYYY-MM-DD) status counts, time to resolve,
  *                    busiest units, ratings per category and staff    FR-22, FR-50
  *   GET  /requests/:id  one request with its history       FR-21
@@ -31,6 +36,7 @@
  */
 const express = require('express');
 const service = require('./maintenance.service');
+const tasks = require('./scheduled-tasks.service');
 const { photosField } = require('./uploads');
 const { requireUser } = require('../../middleware/current-user');
 const { notFound } = require('../../lib/errors');
@@ -58,6 +64,23 @@ router.get('/export.csv', async (req, res) => {
 
 router.get('/report', async (req, res) => {
   res.json(await service.report(req.user, req.query));
+});
+
+// FR-49 / BR-25: scheduled maintenance tasks (admin, staff with maintenance.assign).
+router.get('/scheduled-tasks', async (req, res) => {
+  res.json(await tasks.list(req.user, req.query));
+});
+
+router.post('/scheduled-tasks', async (req, res) => {
+  res.status(201).json(await tasks.create(req.user, req.body));
+});
+
+router.get('/scheduled-tasks/:id', async (req, res) => {
+  res.json(await tasks.get(req.user, req.params.id));
+});
+
+router.patch('/scheduled-tasks/:id', async (req, res) => {
+  res.json(await tasks.update(req.user, req.params.id, req.body));
 });
 
 router.get('/filter-options', async (req, res) => {

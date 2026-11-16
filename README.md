@@ -128,7 +128,7 @@ New modules (billing, announcements, …) will follow the same pattern next to `
 
 ### Not built yet in the maintenance module
 
-- **FR-49 / BR-25 Scheduled maintenance tasks** (e.g. monthly lift servicing).
+- **FR-49 / BR-25 Scheduled maintenance tasks:** tasks can be created, edited, paused and listed through the API (Step 29); turning them into requests and the page come in Sprint 6.
 - Real login (FR-01, FR-02) — see the next sections.
 
 ---
@@ -346,6 +346,10 @@ All endpoints are under `/api/v1` and need a "Viewing as" user (`X-User-Id` head
 | `GET /staff` | Admin, staff with `maintenance.assign` | Active staff, for the "assign to" picker |
 | `GET /export.csv` | Admin and staff | The request list as CSV (FR-38), with the same filters and the same "who sees what" as `GET /requests`, every page at once (up to 10,000 rows; more answers 400 asking for narrower filters). UTF-8 with a byte-order mark; formula-like cells are prefixed with `'` |
 | `GET /report` | Admin, staff with `reports.view` | The maintenance report for requests submitted between `from` and `to` (optional `YYYY-MM-DD`, Bangladesh days): `byStatus`, `overall`, `byCategory` (busiest first), `topUnits` (5, problems inside the apartment only) and `byStaff`. Each figure set has `requests`, `resolved`, `avgHoursToResolve`, `ratings` and `avgRating` (null when there is nothing to average). Time to resolve runs from submission to the latest resolve |
+| `GET /scheduled-tasks` | Admin, staff with `maintenance.assign` | Recurring jobs (FR-49): active ones soonest first, then paused ones. `?dueWithinDays=90` keeps active tasks due in that many days. Each has `nextDueDate` and `createsRequestOn` (7 days earlier, BR-25), both `YYYY-MM-DD` Bangladesh days |
+| `POST /scheduled-tasks` | Admin, staff with `maintenance.assign` | Create one. Body: `title`, optional `description`, `category`, `intervalMonths` (1–24), `nextDueDate` (today or later), optional `defaultAssigneeId` (an active staff member) |
+| `GET /scheduled-tasks/:id` | Same | One task |
+| `PATCH /scheduled-tasks/:id` | Same | Change any of those fields (fields not sent stay as they are); `{ "paused": true }` pauses it, `false` resumes it |
 | `GET /filter-options` | Admin, staff with `maintenance.view_all` | `{ units, staff }` for the list filters; staff includes deactivated members (`active: false`) so their old requests can still be found |
 | `GET /my-units` | Residents | The resident's active units, for the unit picker |
 
@@ -401,6 +405,7 @@ next numbered file; never edit one that is already committed. See
 | `006_create_request_ratings.sql` | `request_ratings` | One rating per request (FR-50, BR-26) |
 | `007_create_notifications.sql` | `notifications` | In-app notifications, one row per person (FR-25) |
 | `008_link_photos_to_notes.sql` | `request_attachments.update_id` | Which note a photo belongs to; empty for photos sent with the request |
+| `009_create_scheduled_tasks.sql` | `scheduled_tasks` | Recurring jobs: title, category, repeat interval (1–24 months), next due date, optional default assignee, paused (FR-49, BR-25) |
 
 The `users`, `units` and `occupancies` tables already follow the SRS data model, but there are
 no screens to manage them yet: they are filled by `npm run db:seed`.
@@ -418,7 +423,7 @@ npm test
 | `tests/state-machine.test.js` | The rules on their own: who may change the status, assign, add notes, change the priority or rate; deadlines and overdue (BR-17) |
 | `tests/csv.test.js` | The CSV helper: Bangla and quotes survive, formulas stay text |
 | `tests/uploads.test.js` | Photo checks: real images pass, renamed files are refused |
-| `tests/api.test.mjs` | The real API over HTTP: submitting, who sees what, a request's whole life, internal notes and their photos, filters (including unit, staff and Bangladesh-day date range), the overview, ratings, auto-close, notifications, uploads, overdue requests, the report and the CSV export |
+| `tests/api.test.mjs` | The real API over HTTP: submitting, who sees what, a request's whole life, internal notes and their photos, filters (including unit, staff and Bangladesh-day date range), the overview, ratings, auto-close, notifications, uploads, overdue requests, the report, the CSV export and scheduled tasks |
 
 The API tests use a **separate test database** (`DATABASE_URL` with `_test` added, or
 `TEST_DATABASE_URL`). It is created if needed and **wiped and re-seeded on every run**, so your
@@ -426,7 +431,7 @@ development data is never touched; the tests refuse to run against the developme
 Test photos go to a temporary folder that is deleted afterwards. If PostgreSQL is not running,
 the API tests are skipped with the reason shown and the other tests still run.
 
-Current result: **30 tests, all passing.**
+Current result: **31 tests, all passing.**
 
 ---
 
@@ -463,6 +468,7 @@ server/
                       state-machine.js            who may do what (pure functions)
                       uploads.js                  photo checks and storage
                       maintenance.constants.js    categories, statuses, priorities, time limits
+                      scheduled-tasks.*.js        recurring jobs (FR-49): service (rules) → repository (SQL)
     notifications/    in-app notifications: routes → service → repository
 public/
   index.html                  home page (+ maintenance overview for the office)
@@ -533,7 +539,11 @@ storage/         uploaded photos (git-ignored)
 - [x] Step 27: maintenance report: average time to resolve, busiest units and categories, average ratings (FR-22, FR-50)
 - [x] Step 28: CSV export of the request list (FR-38)
 
-Next: scheduled maintenance tasks (FR-49, BR-25).
+**Sprint 6 – Scheduled maintenance** 🚧 (FR-49, BR-25; the last part of the maintenance module)
+- [x] Step 29: scheduled tasks table and API: create, edit, pause, resume, list (who: admin, staff with `maintenance.assign`)
+- [ ] Step 30: 7 days before a task is due the server creates the request (common area, Medium, Under review, by "System", assigned to the default assignee), with the task's due date as its deadline; the task moves forward by its interval; safe with several server processes
+- [ ] Step 31: rules for these requests: the admin closes them (no resident to confirm, Appendix A), no rating
+- [ ] Step 32: "Scheduled tasks" page: list, form, pause / resume, due in the next 90 days
 
 ---
 
@@ -541,7 +551,7 @@ Next: scheduled maintenance tasks (FR-49, BR-25).
 
 Not planned in detail yet. In SRS priority order (Must first):
 
-1. **Finish maintenance (this team's part):** Sprint 5 above, then scheduled tasks (FR-49).
+1. **Finish maintenance (this team's part):** Sprint 6 above.
 2. **Users & residents:** real login with hashed passwords and lockout, sessions, password
    change and reset (FR-01, FR-02, FR-31, BR-02); screens for residents, units, occupancy and
    staff permissions (FR-03 – FR-08); then bulk import, household members, move-out (FR-42,

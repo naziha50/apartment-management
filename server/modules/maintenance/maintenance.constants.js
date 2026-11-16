@@ -34,4 +34,12 @@ const PRIORITIES = Object.freeze(['low', 'medium', 'high']);
 // shortcut: fixed values; the SRS lets the admin change them in settings, which come with the settings module.
 const TARGET_HOURS = Object.freeze({ high: 24, medium: 3 * 24, low: 7 * 24, unset: 2 * 24 });
 
-module.exports = { CATEGORIES, LOCATIONS, STATUSES, FINAL_STATUSES, NEEDS_ACTION, RESOLVED_DAYS, RATING_DAYS, PRIORITIES, TARGET_HOURS };
+// BR-25: a scheduled task becomes a request this many days before its due date;
+// its repeat interval is 1 to MAX_INTERVAL_MONTHS months.
+const SCHEDULE_LEAD_DAYS = 7;
+const MAX_INTERVAL_MONTHS = 24;
+
+module.exports = {
+  CATEGORIES, LOCATIONS, STATUSES, FINAL_STATUSES, NEEDS_ACTION, RESOLVED_DAYS, RATING_DAYS, PRIORITIES, TARGET_HOURS,
+  SCHEDULE_LEAD_DAYS, MAX_INTERVAL_MONTHS,
+};
