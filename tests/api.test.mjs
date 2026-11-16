@@ -332,6 +332,37 @@ it('maintenance report: counts, time to resolve, busiest units and ratings for a
   await call(U.admin, 'POST', `/maintenance/requests/${d}/transition`, { to: 'rejected', note: 'Test data' });
 });
 
+it('CSV export: same filters and access as the list, safe in a spreadsheet (FR-38)', async () => {
+  const csv = async (userId, query = '') => {
+    const res = await fetch(`${base}/maintenance/export.csv?${query}`, { headers: { 'X-User-Id': String(userId) } });
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    // TextDecoder drops the byte-order mark, so it is checked on the raw bytes (`bom`).
+    return { status: res.status, type: res.headers.get('content-type'), disposition: res.headers.get('content-disposition'), bom: [...bytes.slice(0, 3)], text: new TextDecoder().decode(bytes) };
+  };
+  const evil = (await call(U.sadia, 'POST', '/maintenance/requests', { title: '=HYPERLINK("http://evil")', category: 'other', location: 'unit', description: 'line one\nline, "two"' })).body;
+
+  const all = await csv(U.admin, 'q=HYPERLINK');
+  assert.equal(all.status, 200);
+  assert.match(all.type, /^text\/csv; charset=utf-8/);
+  assert.match(all.disposition, /^attachment; filename="maintenance-requests-\d{4}-\d{2}-\d{2}\.csv"$/);
+  const lines = all.text.split('\r\n');
+  assert.deepEqual(all.bom, [0xef, 0xbb, 0xbf], 'UTF-8 byte-order mark, so Excel reads Bangla correctly');
+  assert.match(lines[0], /^"Request number","Title","Description",/);
+  assert.equal(lines.length, 3, 'header, one request, final line break');
+  assert.ok(lines[1].startsWith(`"${evil.requestNumber}","'=HYPERLINK(""http://evil"")","line one\nline, ""two"""`), 'formula neutralised, quotes and line break kept');
+  assert.ok(lines[1].includes('"সাদিয়া ইসলাম"'), 'Bangla name kept');
+
+  // The export follows the same rules as the list: Jamal only gets what is assigned to him.
+  const listed = (await call(U.jamal, 'GET', '/maintenance/requests')).body.total;
+  assert.equal((await csv(U.jamal)).text.split('\r\n').length - 2, listed);
+  assert.equal((await csv(U.jamal, 'q=HYPERLINK')).text.split('\r\n').length, 2, 'only the header');
+
+  assert.equal((await csv(U.sadia)).status, 403);
+  assert.equal((await csv(U.admin, 'from=2026-13-01')).status, 400);
+
+  await call(U.sadia, 'POST', `/maintenance/requests/${evil.id}/transition`, { to: 'cancelled' });
+});
+
 it('photos: checked by content, served only to people who may see the request (BR-19)', async () => {
   const form = (files) => {
     const f = new FormData();

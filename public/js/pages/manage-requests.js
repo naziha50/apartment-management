@@ -11,7 +11,7 @@ import { api } from '../api.js';
 import { $, el, replace } from '../dom.js';
 import { CATEGORY_LABELS, NEEDS_ACTION, PRIORITY_LABELS, STATUS_LABELS, categoryLabel, formatDate, overdueBadge, priorityBadge, statusBadge } from '../format.js';
 import { initLayout } from '../layout.js';
-import { animateList, emptyState, errorState, pagination, showFieldErrors } from '../ui.js';
+import { animateList, emptyState, errorState, pagination, showFieldErrors, toast, withBusy } from '../ui.js';
 
 const card = $('#content');
 const filterBox = $('#filters');
@@ -148,6 +148,29 @@ async function load(all) {
   }
 }
 
+/**
+ * FR-38: downloads the requests matching the current filters (every page) as CSV.
+ * Fetched with the "Viewing as" header, then saved through a temporary link.
+ */
+async function downloadCsv(button) {
+  const params = new URLSearchParams(location.search);
+  params.delete('page');
+  await withBusy(button, async () => {
+    try {
+      const file = await api.blob(`/api/v1/maintenance/export.csv?${params}`);
+      const url = URL.createObjectURL(file);
+      const link = el('a', { href: url, download: `maintenance-requests-${new Date().toISOString().slice(0, 10)}.csv` });
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast('The CSV file is downloading.', 'ok');
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }, 'Preparing…');
+}
+
 // Does this user see every request? Known once "Viewing as" has loaded.
 let all = true;
 // Choices for the apartment and staff filters. Empty at first so the bar keeps its size
@@ -178,6 +201,9 @@ try {
     replace(card, emptyState('This page is for staff and the admin.', 'Choose a staff member or the admin in the “Viewing as” menu.'));
   } else {
     all = seesAll(user);
+    const exportButton = $('#export');
+    exportButton.hidden = false;
+    exportButton.addEventListener('click', () => downloadCsv(exportButton));
     options = all ? await api.get('/maintenance/filter-options').catch(() => null) : null;
     showFilters();
     $('#page-title').textContent = all ? 'Maintenance requests' : 'My tasks';

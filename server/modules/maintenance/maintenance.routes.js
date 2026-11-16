@@ -8,6 +8,7 @@
  *   GET  /requests   requests the user may see             FR-21
  *                    ?status=a,b&category=&priority=&q=&assigned=none&overdue=1&sort=oldest
  *                    &unitId=&assignedTo=&from=YYYY-MM-DD&to=YYYY-MM-DD&page=   FR-22, BR-17
+ *   GET  /export.csv  the request list as CSV, same filters as /requests (admin, staff)   FR-38
  *   GET  /filter-options  units and staff for the list filters    FR-22
  *   GET  /report     ?from=&to= (YYYY-MM-DD) status counts, time to resolve,
  *                    busiest units, ratings per category and staff    FR-22, FR-50
@@ -43,6 +44,16 @@ router.post('/requests', photosField, async (req, res) => {
 
 router.get('/requests', async (req, res) => {
   res.json(await service.listRequests(req.user, req.query));
+});
+
+router.get('/export.csv', async (req, res) => {
+  const { filename, body } = await service.exportRequests(req.user, req.query);
+  res.set({
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="${filename}"`,
+    'Cache-Control': 'no-store', // personal data: not kept by the browser or proxies
+  });
+  res.send(body);
 });
 
 router.get('/report', async (req, res) => {

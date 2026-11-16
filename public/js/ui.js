@@ -106,10 +106,10 @@ export function showFieldErrors(form, fields = {}, message) {
 }
 
 /** Disables a button and shows a spinner while `fn` runs, so a form is not sent twice. */
-export async function withBusy(button, fn) {
+export async function withBusy(button, fn, label = 'Sending…') {
   const original = [...button.childNodes];
   button.disabled = true;
-  button.replaceChildren(el('span', { class: 'spinner', 'aria-hidden': 'true' }), 'Sending…');
+  button.replaceChildren(el('span', { class: 'spinner', 'aria-hidden': 'true' }), label);
   try {
     return await fn();
   } finally {

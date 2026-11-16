@@ -15,7 +15,8 @@ const sm = require('./state-machine');
 const notifications = require('../notifications/notifications.service');
 const { CATEGORIES, LOCATIONS, STATUSES, PRIORITIES, RESOLVED_DAYS } = require('./maintenance.constants');
 const { Validator } = require('../../lib/validate');
-const { forbidden, notFound, conflict } = require('../../lib/errors');
+const { toCsv } = require('../../lib/csv');
+const { forbidden, notFound, conflict, badRequest } = require('../../lib/errors');
 const { can } = require('../../middleware/current-user');
 
 /** Turns a database row into the JSON the API returns (camelCase, numbers as numbers). */
@@ -182,6 +183,53 @@ async function listRequests(user, query = {}) {
     offset: (page - 1) * PAGE_SIZE,
   });
   return { items: rows.map(toDto), page, pageSize: PAGE_SIZE, total };
+}
+
+// FR-38: the export holds every match, not one page.
+// shortcut: built in memory, capped at EXPORT_MAX rows (years of requests for one building); stream it in batches if a building ever needs more.
+const EXPORT_MAX = 10000;
+
+// Dates in the export: Bangladesh time (§2.6), in a form spreadsheets sort correctly ("2026-11-16 14:05").
+const CSV_TIME = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Dhaka', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+const csvTime = (d) => (d ? CSV_TIME.format(new Date(d)) : '');
+// "water_supply" → "Water supply"; every category, status, priority and location reads well this way.
+const words = (v) => (v ? v[0].toUpperCase() + v.slice(1).replaceAll('_', ' ') : '');
+
+const EXPORT_COLUMNS = [
+  ['Request number', (r) => r.requestNumber],
+  ['Title', (r) => r.title],
+  ['Description', (r) => r.description],
+  ['Category', (r) => words(r.category)],
+  ['Location', (r) => (r.location === 'unit' ? 'Inside the apartment' : 'Common area')], // same words as the app
+  ['Apartment', (r) => r.unit?.unitNumber],
+  ['Status', (r) => words(r.status)],
+  ['Priority', (r) => words(r.priority) || 'Not set'],
+  ['Overdue', (r) => (r.overdue ? 'Yes' : 'No')],
+  ['Submitted by', (r) => r.submittedBy?.fullName],
+  ['Assigned to', (r) => r.assignedTo?.fullName],
+  ['Submitted', (r) => csvTime(r.submittedAt)],
+  ['Due by', (r) => csvTime(r.dueAt)],
+  ['Resolved', (r) => csvTime(r.resolvedAt)],
+  ['Last updated', (r) => csvTime(r.updatedAt)],
+];
+
+/**
+ * FR-38: the request list as CSV, with the same filters and the same "who sees what" as the
+ * list page. For the admin and staff only; residents follow their requests in the app.
+ * Internal notes are never part of it.
+ */
+async function exportRequests(user, query = {}) {
+  if (user.role === 'resident') throw forbidden('Only the admin and staff can export the request list.');
+  const { rows, total } = await repo.listRequests(user.buildingId, scopeFor(user), parseFilters(query), { limit: EXPORT_MAX, offset: 0 });
+  if (total > EXPORT_MAX) {
+    throw badRequest(`${total} requests match, but one export holds at most ${EXPORT_MAX}. Narrow the filters, for example with a date range.`);
+  }
+  const items = rows.map(toDto);
+  const today = CSV_TIME.format(new Date()).slice(0, 10);
+  return {
+    filename: `maintenance-requests-${today}.csv`,
+    body: toCsv(EXPORT_COLUMNS.map(([h]) => h), items.map((r) => EXPORT_COLUMNS.map(([, get]) => get(r)))),
+  };
 }
 
 /** FR-21: one request with its history. Requests the user may not see answer 404, never 403 (NFR-24). */
@@ -476,6 +524,6 @@ async function setPriority(user, rawId, body) {
 }
 
 module.exports = {
-  createRequest, myUnits, listRequests, getRequest, getAttachment,
+  createRequest, myUnits, listRequests, exportRequests, getRequest, getAttachment,
   transition, staffList, filterOptions, report, assign, addNote, setPriority, overview, autoCloseResolved, rate,
 };

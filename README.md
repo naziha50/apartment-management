@@ -100,6 +100,7 @@ New modules (billing, announcements, …) will follow the same pattern next to `
 | **FR-20** Status and progress | Only the moves in SRS Appendix A are offered. *Resolved* needs a note. Notes can be internal (hidden from the resident) and can carry up to 3 photos. Updates are saved with name and time and cannot be edited |
 | **FR-21** Track my requests | Residents see status, priority, assignee and non-internal notes of their own requests only |
 | **FR-22** History and reports | Lists with filters by status, category, priority, apartment, assigned staff (or nobody), overdue, and submission date range (Bangladesh days), plus search by title or number; 20 per page. A **Report** page (admin, staff with `reports.view`) shows, for any period: requests per status and category, average time to resolve overall, per category and per staff member, and the 5 apartments with the most requests |
+| **FR-38** Export to CSV | "Download CSV" on the requests page saves every request matching the current filters (not just one page) as a spreadsheet file. It opens correctly in Excel and Google Sheets, including Bangla names; dates are in Bangladesh time. Text a spreadsheet would run as a formula (e.g. a title starting with `=`) is kept as plain text. Internal notes are never included |
 | **FR-25 / FR-26** Notifications | Bell with unread count on every page, kept current while the page is open; list of past notifications, mark one or all as read; clicking opens the request |
 | **FR-29** Maintenance overview | Admin home page shows overdue requests (highlighted), counts per status, unassigned and open high-priority requests; each count links to the filtered list |
 | **FR-35** Cancel, confirm, reopen | Cancel while *Submitted*; confirm a *Resolved* request (→ *Closed*) or reopen it within 7 days with a comment |
@@ -128,7 +129,6 @@ New modules (billing, announcements, …) will follow the same pattern next to `
 ### Not built yet in the maintenance module
 
 - **FR-49 / BR-25 Scheduled maintenance tasks** (e.g. monthly lift servicing).
-- **FR-38** CSV export of the request list.
 - Real login (FR-01, FR-02) — see the next sections.
 
 ---
@@ -344,6 +344,7 @@ All endpoints are under `/api/v1` and need a "Viewing as" user (`X-User-Id` head
 | `POST /requests/:id/rating` | The resident who reported it | Body: `rating` (1–5), optional `comment` (≤ 500 chars). Once, within 7 days of closing (else 409 `RATING_NOT_ALLOWED`) |
 | `GET /overview` | Admin, staff with `maintenance.view_all` | Counts for the home page: per status, `unassigned`, `high_open`, `overdue` |
 | `GET /staff` | Admin, staff with `maintenance.assign` | Active staff, for the "assign to" picker |
+| `GET /export.csv` | Admin and staff | The request list as CSV (FR-38), with the same filters and the same "who sees what" as `GET /requests`, every page at once (up to 10,000 rows; more answers 400 asking for narrower filters). UTF-8 with a byte-order mark; formula-like cells are prefixed with `'` |
 | `GET /report` | Admin, staff with `reports.view` | The maintenance report for requests submitted between `from` and `to` (optional `YYYY-MM-DD`, Bangladesh days): `byStatus`, `overall`, `byCategory` (busiest first), `topUnits` (5, problems inside the apartment only) and `byStaff`. Each figure set has `requests`, `resolved`, `avgHoursToResolve`, `ratings` and `avgRating` (null when there is nothing to average). Time to resolve runs from submission to the latest resolve |
 | `GET /filter-options` | Admin, staff with `maintenance.view_all` | `{ units, staff }` for the list filters; staff includes deactivated members (`active: false`) so their old requests can still be found |
 | `GET /my-units` | Residents | The resident's active units, for the unit picker |
@@ -415,8 +416,9 @@ npm test
 | File | What it checks |
 |---|---|
 | `tests/state-machine.test.js` | The rules on their own: who may change the status, assign, add notes, change the priority or rate; deadlines and overdue (BR-17) |
+| `tests/csv.test.js` | The CSV helper: Bangla and quotes survive, formulas stay text |
 | `tests/uploads.test.js` | Photo checks: real images pass, renamed files are refused |
-| `tests/api.test.mjs` | The real API over HTTP: submitting, who sees what, a request's whole life, internal notes and their photos, filters (including unit, staff and Bangladesh-day date range), the overview, ratings, auto-close, notifications, uploads, overdue requests and the report |
+| `tests/api.test.mjs` | The real API over HTTP: submitting, who sees what, a request's whole life, internal notes and their photos, filters (including unit, staff and Bangladesh-day date range), the overview, ratings, auto-close, notifications, uploads, overdue requests, the report and the CSV export |
 
 The API tests use a **separate test database** (`DATABASE_URL` with `_test` added, or
 `TEST_DATABASE_URL`). It is created if needed and **wiped and re-seeded on every run**, so your
@@ -424,7 +426,7 @@ development data is never touched; the tests refuse to run against the developme
 Test photos go to a temporary folder that is deleted afterwards. If PostgreSQL is not running,
 the API tests are skipped with the reason shown and the other tests still run.
 
-Current result: **27 tests, all passing.**
+Current result: **30 tests, all passing.**
 
 ---
 
@@ -453,6 +455,7 @@ server/
   db/pool.js        shared PostgreSQL pool + transaction helper
   lib/errors.js     API errors with plain-language messages
   lib/validate.js   input checking that reports every field problem at once
+  lib/csv.js        CSV files for spreadsheets (FR-38)
   middleware/       current-user.js ("Viewing as" → req.user), error-handler.js, security.js (headers)
   modules/          one folder per module
     users/            lists users and answers /me
@@ -481,7 +484,7 @@ public/
 db/
   create-db.js   migrate.js   seed.js
   migrations/    numbered .sql files
-tests/           rule, upload and API tests
+tests/           rule, CSV, upload and API tests
 storage/         uploaded photos (git-ignored)
 .env.example     template for your .env
 ```
@@ -524,11 +527,11 @@ storage/         uploaded photos (git-ignored)
 - Step 23: in-app notifications, kept current while a page is open (FR-25, FR-26)
 - Step 24: photos on progress notes (BR-19)
 
-**Sprint 5 – Deadlines and reports** 🚧 (maintenance only)
+**Sprint 5 – Deadlines and reports** ✅ (maintenance only)
 - [x] Step 25: overdue requests by priority (BR-17), oldest-first review queue (FR-18), overdue count on the overview (FR-29)
 - [x] Step 26: more list filters: unit, assigned staff, date range (FR-22)
 - [x] Step 27: maintenance report: average time to resolve, busiest units and categories, average ratings (FR-22, FR-50)
-- [ ] Step 28: CSV export of the request list (FR-38)
+- [x] Step 28: CSV export of the request list (FR-38)
 
 Next: scheduled maintenance tasks (FR-49, BR-25).
 

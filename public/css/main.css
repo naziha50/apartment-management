@@ -261,6 +261,7 @@ table.data tbody tr:hover { background: #fafaf7; }
 }
 .toast { padding: 0.8rem 1rem; border-radius: var(--radius); background: var(--ink); color: #fff; font-weight: 500; box-shadow: var(--shadow); }
 .toast--ok { background: var(--ok); }
+.toast--error { background: var(--danger); }
 
 /* ------------------------------------------------------- request detail */
 .back-link { display: inline-block; color: var(--ink-2); font-weight: 500; }
