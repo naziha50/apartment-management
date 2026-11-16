@@ -180,13 +180,14 @@ async function getRequest(user, rawId) {
 
   const [updates, attachments, rating] = await Promise.all([
     repo.listUpdates(id, { includeInternal: user.role !== 'resident' }),
-    repo.listAttachments(id),
+    repo.listAttachments(id, { includeInternal: user.role !== 'resident' }),
     repo.findRating(id),
   ]);
   return {
     ...toDto(row),
     attachments: attachments.map((a) => ({
       id: Number(a.id),
+      updateId: a.update_id ? Number(a.update_id) : null, // the note it came with; null = reported with the request
       name: a.original_name,
       mimeType: a.mime_type,
       sizeBytes: a.size_bytes,
@@ -277,6 +278,8 @@ async function getAttachment(user, rawRequestId, rawAttachmentId) {
   const row = await loadVisible(rawRequestId, user);
   const attachmentId = toId(rawAttachmentId);
   const att = attachmentId && (await repo.findAttachment(row.id, attachmentId));
+  // A photo on an internal note is as private as the note (FR-20).
+  if (att?.is_internal && user.role === 'resident') throw notFound('We could not find that photo.');
   const file = att && uploads.filePath(att.stored_name);
   if (!file) throw notFound('We could not find that photo.');
   return { file, mimeType: att.mime_type, name: att.original_name };
@@ -379,24 +382,34 @@ async function assign(user, rawId, body) {
  * FR-20: a progress note. `internal: true` keeps it to staff and the admin;
  * residents never receive internal notes (see listUpdates).
  */
-async function addNote(user, rawId, body) {
+async function addNote(user, rawId, body, files = []) {
   const id = Number(rawId);
   const v = new Validator(body);
   const note = v.text('note', { max: 2000, label: 'Note' });
   const internal = body?.internal === true || body?.internal === 'true';
   v.throwIfInvalid();
 
-  await db.withTransaction(async (client) => {
-    const row = await loadVisible(id, user, client);
-    if (!sm.canAddNote(row, user)) throw forbidden('You cannot add notes to this request.');
-    await repo.insertUpdate(client, { requestId: id, authorId: user.id, kind: 'note', note, isInternal: internal });
-    await notifications.notify(client, {
-      buildingId: row.building_id, requestId: id, except: user.id,
-      to: internal ? [row.assigned_to] : [row.submitted_by, row.assigned_to], // residents never hear about internal notes
-      message: `${internal ? 'Internal note' : 'New note'} on request ${row.request_number}: ${note}`,
+  const photos = uploads.inspectFiles(files); // BR-19: checked before anything is saved
+  let saved = [];
+  try {
+    await db.withTransaction(async (client) => {
+      const row = await loadVisible(id, user, client);
+      if (!sm.canAddNote(row, user)) throw forbidden('You cannot add notes to this request.');
+      const updateId = await repo.insertUpdate(client, { requestId: id, authorId: user.id, kind: 'note', note, isInternal: internal });
+      // Files are written only once the person is allowed to add this note.
+      saved = await uploads.saveFiles(photos);
+      await repo.insertAttachments(client, { buildingId: row.building_id, requestId: id, uploadedBy: user.id, updateId }, saved);
+      await notifications.notify(client, {
+        buildingId: row.building_id, requestId: id, except: user.id,
+        to: internal ? [row.assigned_to] : [row.submitted_by, row.assigned_to], // residents never hear about internal notes
+        message: `${internal ? 'Internal note' : 'New note'} on request ${row.request_number}: ${note}`,
+      });
+      await repo.updateRequest(client, id, {}); // a note is activity: move it up in the lists
     });
-    await repo.updateRequest(client, id, {}); // a note is activity: move it up in the lists
-  });
+  } catch (err) {
+    await uploads.removeFiles(saved); // no orphan files on disk
+    throw err;
+  }
   return getRequest(user, id);
 }
 

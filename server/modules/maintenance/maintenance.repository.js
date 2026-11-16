@@ -36,11 +36,12 @@ async function insertRequest(client, r) {
 
 /** Adds one history entry (FR-20). History is only ever added to, never changed. */
 async function insertUpdate(client, u) {
-  await client.query(
+  const { rows } = await client.query(
     `INSERT INTO request_updates (request_id, author_id, kind, from_status, to_status, note, is_internal)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
     [u.requestId, u.authorId ?? null, u.kind, u.fromStatus ?? null, u.toStatus ?? null, u.note ?? null, Boolean(u.isInternal)],
   );
+  return Number(rows[0].id);
 }
 
 /** One request with its unit number and the names of the people involved. */
@@ -118,22 +119,24 @@ async function listUpdates(requestId, { includeInternal }) {
 }
 
 /** BR-19: stores the details of photos already saved to disk. */
-async function insertAttachments(client, { buildingId, requestId, uploadedBy }, files) {
+async function insertAttachments(client, { buildingId, requestId, uploadedBy, updateId = null }, files) {
   for (const f of files) {
     await client.query(
-      `INSERT INTO request_attachments (building_id, request_id, stored_name, original_name, mime_type, size_bytes, uploaded_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [buildingId, requestId, f.storedName, f.originalName, f.mime, f.size, uploadedBy],
+      `INSERT INTO request_attachments (building_id, request_id, update_id, stored_name, original_name, mime_type, size_bytes, uploaded_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [buildingId, requestId, updateId, f.storedName, f.originalName, f.mime, f.size, uploadedBy],
     );
   }
 }
 
-/** A request's photos, in upload order. */
-async function listAttachments(requestId) {
+/** A request's photos, in upload order. Photos of internal notes only when `includeInternal`. */
+async function listAttachments(requestId, { includeInternal }) {
   const { rows } = await db.query(
-    `SELECT id, original_name, mime_type, size_bytes, created_at
-       FROM request_attachments WHERE request_id = $1 ORDER BY id`,
-    [requestId],
+    `SELECT a.id, a.update_id, a.original_name, a.mime_type, a.size_bytes, a.created_at
+       FROM request_attachments a LEFT JOIN request_updates ru ON ru.id = a.update_id
+      WHERE a.request_id = $1 AND ($2 OR NOT COALESCE(ru.is_internal, FALSE))
+      ORDER BY a.id`,
+    [requestId, includeInternal],
   );
   return rows;
 }
@@ -141,7 +144,9 @@ async function listAttachments(requestId) {
 /** One photo of one request (both ids must match, so photos cannot be fetched through another request). */
 async function findAttachment(requestId, attachmentId) {
   const { rows } = await db.query(
-    `SELECT stored_name, original_name, mime_type FROM request_attachments WHERE request_id = $1 AND id = $2`,
+    `SELECT a.stored_name, a.original_name, a.mime_type, COALESCE(ru.is_internal, FALSE) AS is_internal
+       FROM request_attachments a LEFT JOIN request_updates ru ON ru.id = a.update_id
+      WHERE a.request_id = $1 AND a.id = $2`,
     [requestId, attachmentId],
   );
   return rows[0] || null;

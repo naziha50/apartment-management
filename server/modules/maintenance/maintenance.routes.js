@@ -15,7 +15,7 @@
  *                    body { staffId }
  *   GET  /staff      staff that requests can be assigned to FR-19
  *   POST /requests/:id/notes  add a progress note           FR-20
- *                    body { note, internal? }
+ *                    body { note, internal? }, JSON or multipart with up to 3 `photos` (BR-19)
  *   PATCH /requests/:id/priority  change the priority     FR-18
  *                    body { priority }
  *   POST /requests/:id/rating  rate a closed request      FR-50, BR-26
@@ -68,8 +68,8 @@ router.post('/requests/:id/assign', async (req, res) => {
   res.json(await service.assign(req.user, req.params.id, req.body));
 });
 
-router.post('/requests/:id/notes', async (req, res) => {
-  res.status(201).json(await service.addNote(req.user, req.params.id, req.body));
+router.post('/requests/:id/notes', photosField, async (req, res) => {
+  res.status(201).json(await service.addNote(req.user, req.params.id, req.body, req.files));
 });
 
 router.post('/requests/:id/rating', async (req, res) => {

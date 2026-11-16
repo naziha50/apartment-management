@@ -356,6 +356,38 @@ it('notifications reach the right people, never the actor, and never leak intern
   assert.equal(await unread(U.tanvir), 1);
 });
 
+it('photos on notes; photos on internal notes stay hidden from the resident (BR-19, FR-20)', async () => {
+  const id = (await call(U.tanvir, 'POST', '/maintenance/requests', { title: 'Note photos', category: 'other', location: 'unit', description: 'x' })).body.id;
+  const url = `/maintenance/requests/${id}`;
+  await call(U.admin, 'POST', `${url}/transition`, { to: 'under_review', priority: 'low' });
+  await call(U.admin, 'POST', `${url}/assign`, { staffId: U.jamal });
+
+  const note = (text, internal, files) => {
+    const f = new FormData();
+    f.append('note', text);
+    if (internal) f.append('internal', 'true');
+    for (const [name, bytes] of files) f.append('photos', new Blob([bytes]), name);
+    return call(U.jamal, 'POST', `${url}/notes`, f);
+  };
+  assert.equal((await note('Fake photo', false, [['virus.jpg', 'MZ not an image']])).status, 400, 'checked by content');
+  assert.equal((await note('Before the repair', false, [['before.png', PNG]])).status, 201);
+  assert.equal((await note('Meter reading, staff only', true, [['meter.png', PNG]])).status, 201);
+
+  const asStaff = (await call(U.jamal, 'GET', url)).body;
+  const publicNote = asStaff.updates.find((u) => u.note === 'Before the repair');
+  const internalNote = asStaff.updates.find((u) => u.note === 'Meter reading, staff only');
+  const publicPhoto = asStaff.attachments.find((a) => a.updateId === publicNote.id);
+  const internalPhoto = asStaff.attachments.find((a) => a.updateId === internalNote.id);
+  assert.ok(publicPhoto && internalPhoto, 'staff see both photos, each linked to its note');
+
+  const asResident = (await call(U.tanvir, 'GET', url)).body;
+  assert.deepEqual(asResident.attachments.map((a) => a.id), [publicPhoto.id], 'the resident gets only the public note photo');
+  const path = (a) => a.url.replace('/api/v1', '');
+  assert.equal((await call(U.tanvir, 'GET', path(publicPhoto))).status, 200);
+  assert.equal((await call(U.tanvir, 'GET', path(internalPhoto))).status, 404, 'internal photo: not found, even by its address');
+  assert.equal((await call(U.jamal, 'GET', path(internalPhoto))).status, 200, 'staff can open it');
+});
+
 it('request numbers keep working after 99,999 (migration 004)', async () => {
   // Safe: this file only ever talks to the test database, which is wiped on every run.
   await pool.query("SELECT setval('maintenance_request_number_seq', 99998)");

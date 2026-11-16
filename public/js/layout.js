@@ -8,7 +8,13 @@
  */
 import { api } from './api.js';
 import { el, $, icon, replace } from './dom.js';
+import { toast } from './ui.js';
 import { initViewingAs } from './viewing-as.js';
+
+// FR-25: how often an open page checks for new notifications. Checking (not pushing) works with any
+// number of server processes and costs one small indexed count per open, visible tab.
+const BELL_REFRESH_MS = 30 * 1000;
+let lastUnread = null;
 
 /** FR-25: shows the unread count on the bell (0 hides the number). Pages call it after marking read. */
 export function setBellCount(unread) {
@@ -18,6 +24,21 @@ export function setBellCount(unread) {
   count.textContent = unread > 99 ? '99+' : String(unread);
   count.hidden = !unread;
   bell.setAttribute('aria-label', unread ? `Notifications, ${unread} unread` : 'Notifications');
+  lastUnread = unread;
+}
+
+/** Re-reads the count; says so (also to screen readers) when something new arrived since the last check. */
+async function refreshBell() {
+  try {
+    const { unread } = await api.get('/notifications/unread-count');
+    if (lastUnread !== null && unread > lastUnread) {
+      const fresh = unread - lastUnread;
+      toast(fresh === 1 ? 'You have a new notification.' : `You have ${fresh} new notifications.`);
+    }
+    setBellCount(unread);
+  } catch {
+    /* offline or server busy: the next check tries again */
+  }
 }
 
 const BUILDING_NAME = 'Green Valley Apartments';
@@ -99,8 +120,15 @@ export async function initLayout({ active } = {}) {
         renderNav(user);
         if (user) {
           bell.hidden = false;
-          // shortcut: the count is read on each page load, not pushed live; add polling or server-sent events if needed.
-          api.get('/notifications/unread-count').then(({ unread }) => setBellCount(unread)).catch(() => {});
+          refreshBell();
+          // Stay current while the page is open: check regularly while the tab is visible,
+          // and at once when the person comes back to it (hidden tabs send nothing).
+          setInterval(() => {
+            if (document.visibilityState === 'visible') refreshBell();
+          }, BELL_REFRESH_MS);
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') refreshBell();
+          });
         }
         resolve(user);
       } else {

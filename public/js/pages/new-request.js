@@ -7,33 +7,12 @@ import { api } from '../api.js';
 import { $, el, replace } from '../dom.js';
 import { CATEGORY_LABELS } from '../format.js';
 import { initLayout } from '../layout.js';
+import { appendPhotos, photoProblem, watchPhotos } from '../photos.js';
 import { animateIn, emptyState, errorState, showFieldErrors, withBusy } from '../ui.js';
 
 const card = $('#content');
 const form = $('#request-form');
-const MAX_FILES = 3;
-const MAX_BYTES = 5 * 1024 * 1024;
-const TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-
-/** Returns a message for the first problem with the chosen photos, or null. */
-function photoProblem(files) {
-  if (files.length > MAX_FILES) return `You can attach up to ${MAX_FILES} photos.`;
-  for (const f of files) {
-    if (!TYPES.includes(f.type)) return `"${f.name}" is not a JPG, PNG or WEBP photo.`;
-    if (f.size > MAX_BYTES) return `"${f.name}" is larger than 5 MB.`;
-  }
-  return null;
-}
-
-let previewUrls = [];
-form.photos.addEventListener('change', () => {
-  const files = [...form.photos.files];
-  const problem = photoProblem(files);
-  previewUrls.forEach((u) => URL.revokeObjectURL(u));
-  previewUrls = problem ? [] : files.map((f) => URL.createObjectURL(f));
-  replace($('#photo-preview'), previewUrls.map((src, i) => el('img', { src, alt: files[i].name })));
-  showFieldErrors(form, problem ? { photos: problem } : {});
-});
+watchPhotos(form, form.photos, $('#photo-preview'));
 
 try {
   const user = await initLayout({ active: 'newRequest' });
@@ -63,14 +42,12 @@ try {
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const files = [...form.photos.files];
-      const problem = photoProblem(files);
+      const problem = photoProblem([...form.photos.files]);
       if (problem) return showFieldErrors(form, { photos: problem });
 
       const body = new FormData(form);
       if (units.length <= 1) body.delete('unitId'); // the server fills in the only unit
-      body.delete('photos'); // an empty file input still sends a blank file
-      files.forEach((f) => body.append('photos', f));
+      appendPhotos(body, form.photos);
       await withBusy(form.querySelector('button[type="submit"]'), async () => {
         try {
           const created = await api.post('/maintenance/requests', body);

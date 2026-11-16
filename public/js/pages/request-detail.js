@@ -11,6 +11,7 @@ import { api } from '../api.js';
 import { $, el, replace } from '../dom.js';
 import { LOCATION_LABELS, PRIORITY_LABELS, STATUS_LABELS, categoryLabel, formatDate, formatDateTime, priorityBadge, statusBadge } from '../format.js';
 import { initLayout } from '../layout.js';
+import { appendPhotos, photoField, photoProblem, watchPhotos } from '../photos.js';
 import { animateIn, animateList, errorState, showFieldErrors, toast, withBusy } from '../ui.js';
 
 const main = $('#main');
@@ -104,14 +105,17 @@ function assignForm(r, user) {
 function noteForm(r, user) {
   const internal = el('input', { type: 'checkbox', id: 'note-internal' });
   const button = el('button', { type: 'submit', class: 'btn btn-primary', text: 'Add note' });
+  const photos = photoField('note-photos'); // BR-19: e.g. before/after pictures of the repair
   const form = el(
     'form',
     { class: 'form', novalidate: true },
     el('p', { class: 'hint', text: 'Tell the resident how the work is going, or leave an internal note for staff.' }),
     el('div', { class: 'field' }, el('label', { for: 'note-text', text: 'Note' }), el('textarea', { id: 'note-text', name: 'note', maxlength: 2000, required: true })),
-    el('label', { class: 'choice' }, internal, ' Internal note (only staff and the admin can see it)'),
+    photos.field,
+    el('label', { class: 'choice' }, internal, ' Internal note (only staff and the admin can see it, photos included)'),
     el('div', { class: 'form-actions' }, button),
   );
+  watchPhotos(form, photos.input, photos.preview);
   onSubmit(form, button, user, `/maintenance/requests/${r.id}/notes`, () => ({ internal: internal.checked }), () => (internal.checked ? 'Internal note added.' : 'Note added.'));
   return el('details', { class: 'action' }, el('summary', { text: 'Add a note' }), form);
 }
@@ -185,7 +189,18 @@ function priorityForm(r, user) {
 function onSubmit(form, button, user, path, extra, message, method = 'post') {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const body = { ...extra(), ...Object.fromEntries(new FormData(form)) };
+    // With photos chosen the form goes as multipart; otherwise as JSON (file inputs left out).
+    const fileInput = form.querySelector('input[type="file"]');
+    let body;
+    if (fileInput?.files.length) {
+      const problem = photoProblem([...fileInput.files]);
+      if (problem) return showFieldErrors(form, { [fileInput.name]: problem });
+      body = new FormData(form);
+      for (const [key, value] of Object.entries(extra())) body.set(key, String(value));
+      appendPhotos(body, fileInput);
+    } else {
+      body = { ...extra(), ...Object.fromEntries([...new FormData(form)].filter(([, v]) => !(v instanceof File))) };
+    }
     await withBusy(button, async () => {
       try {
         const updated = await api[method](path, body);
@@ -253,12 +268,17 @@ function render(r, user) {
     details.push(['Rating', [ratingText(r.rating.rating), r.rating.comment ? el('p', { class: 'timeline__note', text: `“${r.rating.comment}”` }) : null]]);
   }
 
+  // BR-19: photos reported with the request go in the Photos card; photos added with a note sit under that note.
+  const reportPhotos = r.attachments.filter((a) => a.updateId == null);
+  const noteHasPhotos = (u) => r.attachments.some((a) => a.updateId === u.id);
+
   const history = r.updates.map((u) =>
     el(
       'li',
       { class: u.isInternal ? 'timeline__item timeline__item--internal' : 'timeline__item' },
       el('strong', { text: describe(u) }),
       u.note ? el('p', { class: 'timeline__note', text: u.note }) : null,
+      noteHasPhotos(u) ? el('div', { class: 'photos timeline__photos' }, r.attachments.filter((a) => a.updateId === u.id).map(photoLink)) : null,
       el(
         'div',
         { class: 'muted small' },
@@ -317,7 +337,7 @@ function render(r, user) {
       ),
       el('section', { class: 'card' }, el('h2', { text: 'Description' }), el('p', { class: 'prewrap', text: r.description })),
     ),
-    r.attachments.length
+    reportPhotos.length
       ? el(
           'section',
           { class: 'card' },
@@ -325,7 +345,7 @@ function render(r, user) {
           el(
             'div',
             { class: 'photos' },
-            r.attachments.map(photoLink),
+            reportPhotos.map(photoLink),
           ),
         )
       : null,

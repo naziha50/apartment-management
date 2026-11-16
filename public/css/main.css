@@ -273,6 +273,7 @@ table.data tbody tr:hover { background: #fafaf7; }
 }
 .timeline__item--internal::before { background: var(--warn); }
 .timeline__note { margin: 0.25rem 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.timeline__photos { margin: 0.4rem 0; } /* BR-19: photos added with a note */
 
 /* Notifications (FR-25): bell with unread count, and the list */
 .bell { position: relative; }
