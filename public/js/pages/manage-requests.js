@@ -11,7 +11,7 @@ import { api } from '../api.js';
 import { $, el, replace } from '../dom.js';
 import { CATEGORY_LABELS, NEEDS_ACTION, PRIORITY_LABELS, STATUS_LABELS, categoryLabel, formatDate, overdueBadge, priorityBadge, statusBadge } from '../format.js';
 import { initLayout } from '../layout.js';
-import { animateList, emptyState, errorState, pagination } from '../ui.js';
+import { animateList, emptyState, errorState, pagination, showFieldErrors } from '../ui.js';
 
 const card = $('#content');
 const filterBox = $('#filters');
@@ -20,10 +20,14 @@ const seesAll = (user) => user.role === 'admin' || user.permissions.includes('ma
 
 // "Open" = everything still being worked on, the most useful view for the office.
 const OPEN = 'submitted,under_review,in_progress,resolved';
-const FILTER_KEYS = ['status', 'priority', 'category', 'assigned', 'overdue', 'q'];
+const FILTER_KEYS = ['status', 'priority', 'category', 'assigned', 'overdue', 'unitId', 'assignedTo', 'from', 'to', 'q'];
 
-/** The filter form; its field names match the API's query parameters. */
-function filterForm(params, onChange) {
+/**
+ * The filter form; its field names match the API's query parameters.
+ * `options` ({ units, staff } from /filter-options) adds the apartment and staff
+ * filters for people who see every request; null leaves them out.
+ */
+function filterForm(params, onChange, options) {
   const select = (name, label, options) =>
     el(
       'div',
@@ -35,6 +39,8 @@ function filterForm(params, onChange) {
         options.map(([value, text]) => el('option', { value, text, selected: params.get(name) === value || null })),
       ),
     );
+  const dateField = (name, label) =>
+    el('div', { class: 'field' }, el('label', { for: `f-${name}`, text: label }), el('input', { id: `f-${name}`, name, type: 'date', value: params.get(name) || '' }));
   const form = el(
     'form',
     { class: 'filters', role: 'search', 'aria-label': 'Filter requests' },
@@ -44,7 +50,11 @@ function filterForm(params, onChange) {
     select('category', 'Category', [['', 'Any category'], ...Object.entries(CATEGORY_LABELS)]),
     select('assigned', 'Assigned', [['', 'Anyone'], ['none', 'Not assigned yet']]),
     select('overdue', 'Deadline (BR-17)', [['', 'Any'], ['1', 'Overdue only']]),
-    select('sort', 'Order', [['', 'Recently updated first'], ['oldest', 'Oldest first']]),
+    select('sort', 'Order', [['', 'Recently updated'], ['oldest', 'Oldest first']]),
+    options && select('unitId', 'Apartment', [['', 'Any apartment'], ...options.units.map((u) => [String(u.id), `Apt ${u.unitNumber}`])]),
+    options && select('assignedTo', 'Staff member', [['', 'Any staff'], ...options.staff.map((st) => [String(st.id), st.active ? st.fullName : `${st.fullName} (inactive)`])]),
+    dateField('from', 'Submitted from'),
+    dateField('to', 'Submitted until'),
     el(
       'div',
       { class: 'form-actions' },
@@ -52,13 +62,20 @@ function filterForm(params, onChange) {
       el('a', { class: 'btn btn-secondary', href: location.pathname, text: 'Clear' }),
     ),
   );
+  // A backwards date range is explained next to the field instead of being sent (the server checks it too).
+  const apply = () => {
+    const { from, to } = form.elements;
+    const backwards = from.value && to.value && from.value > to.value;
+    showFieldErrors(form, backwards ? { to: 'The end date must be on or after the start date.' } : {});
+    if (!backwards) onChange(new FormData(form));
+  };
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    onChange(new FormData(form));
+    apply();
   });
-  // Dropdowns apply at once; the search box waits for Enter or the button.
+  // Dropdowns and dates apply at once; the search box waits for Enter or the button.
   form.addEventListener('change', (e) => {
-    if (e.target.tagName === 'SELECT') onChange(new FormData(form));
+    if (e.target.tagName === 'SELECT' || e.target.type === 'date') apply();
   });
   return form;
 }
@@ -131,8 +148,11 @@ async function load(all) {
   }
 }
 
-// Does this user see every request? Only changes wording; known once "Viewing as" has loaded.
+// Does this user see every request? Known once "Viewing as" has loaded.
 let all = true;
+// Choices for the apartment and staff filters. Empty at first so the bar keeps its size
+// when the real lists arrive; null for staff who only see their own tasks.
+let options = { units: [], staff: [] };
 
 const showFilters = () =>
   replace(
@@ -142,7 +162,7 @@ const showFilters = () =>
       const clean = new URLSearchParams([...data].filter(([, v]) => v !== ''));
       history.pushState(null, '', `${location.pathname}${clean.size ? `?${clean}` : ''}`);
       load(all);
-    }),
+    }, options),
   );
 
 // The filter bar does not depend on who is viewing, so draw it at once: showing it
@@ -158,6 +178,8 @@ try {
     replace(card, emptyState('This page is for staff and the admin.', 'Choose a staff member or the admin in the “Viewing as” menu.'));
   } else {
     all = seesAll(user);
+    options = all ? await api.get('/maintenance/filter-options').catch(() => null) : null;
+    showFilters();
     $('#page-title').textContent = all ? 'Maintenance requests' : 'My tasks';
     // Back / forward: show the filters and results that belong to that address.
     window.addEventListener('popstate', () => {

@@ -99,7 +99,7 @@ New modules (billing, announcements, …) will follow the same pattern next to `
 | **FR-19** Assign to staff | Pick an active staff member, reassign later. Every change is kept in the history and the new assignee is notified |
 | **FR-20** Status and progress | Only the moves in SRS Appendix A are offered. *Resolved* needs a note. Notes can be internal (hidden from the resident) and can carry up to 3 photos. Updates are saved with name and time and cannot be edited |
 | **FR-21** Track my requests | Residents see status, priority, assignee and non-internal notes of their own requests only |
-| **FR-22** History and reports | Lists with filters by status, category, priority, "nobody assigned", and search by title or number; 20 per page |
+| **FR-22** History and reports | Lists with filters by status, category, priority, apartment, assigned staff (or nobody), overdue, and submission date range (Bangladesh days), plus search by title or number; 20 per page |
 | **FR-25 / FR-26** Notifications | Bell with unread count on every page, kept current while the page is open; list of past notifications, mark one or all as read; clicking opens the request |
 | **FR-29** Maintenance overview | Admin home page shows overdue requests (highlighted), counts per status, unassigned and open high-priority requests; each count links to the filtered list |
 | **FR-35** Cancel, confirm, reopen | Cancel while *Submitted*; confirm a *Resolved* request (→ *Closed*) or reopen it within 7 days with a comment |
@@ -127,7 +127,7 @@ New modules (billing, announcements, …) will follow the same pattern next to `
 
 ### Not built yet in the maintenance module
 
-- **FR-22** filters by unit, assigned staff and date range; average time to resolve; busiest units and categories.
+- **FR-22** average time to resolve; busiest units and categories.
 - **FR-50** average rating in the reports.
 - **FR-49 / BR-25 Scheduled maintenance tasks** (e.g. monthly lift servicing).
 - **FR-38** CSV export of the request list.
@@ -336,7 +336,7 @@ All endpoints are under `/api/v1` and need a "Viewing as" user (`X-User-Id` head
 | Method & path | Who | What it does |
 |---|---|---|
 | `POST /requests` | Residents | Submit a request (FR-16, FR-17). Body: `title` (3–120 chars), `description`, `category`, `location` (`unit` or `common_area`), and `unitId` only if the resident has more than one unit. JSON, or `multipart/form-data` with up to 3 `photos`. Returns 201 with the new request |
-| `GET /requests` | Everyone | Requests you may see, newest activity first, 20 per page. Filters: `status` (comma-separated), `category`, `priority` (`high`, `medium`, `low`, `unset`), `q` (title or number), `assigned=none`, `overdue=1` (BR-17), `page`. `sort=oldest` lists the longest-waiting first (FR-18). Returns `{ items, page, pageSize, total }` |
+| `GET /requests` | Everyone | Requests you may see, newest activity first, 20 per page. Filters: `status` (comma-separated), `category`, `priority` (`high`, `medium`, `low`, `unset`), `q` (title or number), `assigned=none` or `assignedTo` (a staff id), `unitId`, `from` / `to` (`YYYY-MM-DD`, the Bangladesh day it was submitted; `to` includes the whole day), `overdue=1` (BR-17), `page`. `sort=oldest` lists the longest-waiting first (FR-18). Returns `{ items, page, pageSize, total }` |
 | `GET /requests/:id` | Everyone | One request (like every request in the API: with `dueAt` and `overdue`, BR-17) with `updates` (history), `attachments`, `rating`, `autoCloseAt` and `allowed` (what you may do now: `transitions`, `assign`, `addNote`, `setPriority`, `rate`). Requests you may not see answer 404 |
 | `GET /requests/:id/attachments/:attId` | Everyone | One photo, with the same access rule as its request |
 | `POST /requests/:id/transition` | Depends on the move | Change the status. Body: `to`, plus `priority` when reviewing and `note` when rejecting, resolving or reopening. A move not allowed now answers 409 `TRANSITION_NOT_ALLOWED` |
@@ -346,6 +346,7 @@ All endpoints are under `/api/v1` and need a "Viewing as" user (`X-User-Id` head
 | `POST /requests/:id/rating` | The resident who reported it | Body: `rating` (1–5), optional `comment` (≤ 500 chars). Once, within 7 days of closing (else 409 `RATING_NOT_ALLOWED`) |
 | `GET /overview` | Admin, staff with `maintenance.view_all` | Counts for the home page: per status, `unassigned`, `high_open`, `overdue` |
 | `GET /staff` | Admin, staff with `maintenance.assign` | Active staff, for the "assign to" picker |
+| `GET /filter-options` | Admin, staff with `maintenance.view_all` | `{ units, staff }` for the list filters; staff includes deactivated members (`active: false`) so their old requests can still be found |
 | `GET /my-units` | Residents | The resident's active units, for the unit picker |
 
 Categories: `plumbing`, `electrical`, `lift`, `generator`, `water_supply`, `gas`, `cleaning`,
@@ -416,7 +417,7 @@ npm test
 |---|---|
 | `tests/state-machine.test.js` | The rules on their own: who may change the status, assign, add notes, change the priority or rate; deadlines and overdue (BR-17) |
 | `tests/uploads.test.js` | Photo checks: real images pass, renamed files are refused |
-| `tests/api.test.mjs` | The real API over HTTP: submitting, who sees what, a request's whole life, internal notes and their photos, filters, the overview, ratings, auto-close, notifications, uploads and overdue requests |
+| `tests/api.test.mjs` | The real API over HTTP: submitting, who sees what, a request's whole life, internal notes and their photos, filters (including unit, staff and Bangladesh-day date range), the overview, ratings, auto-close, notifications, uploads and overdue requests |
 
 The API tests use a **separate test database** (`DATABASE_URL` with `_test` added, or
 `TEST_DATABASE_URL`). It is created if needed and **wiped and re-seeded on every run**, so your
@@ -424,7 +425,7 @@ development data is never touched; the tests refuse to run against the developme
 Test photos go to a temporary folder that is deleted afterwards. If PostgreSQL is not running,
 the API tests are skipped with the reason shown and the other tests still run.
 
-Current result: **25 tests, all passing.**
+Current result: **26 tests, all passing.**
 
 ---
 
@@ -525,7 +526,7 @@ storage/         uploaded photos (git-ignored)
 
 **Sprint 5 – Deadlines and reports** 🚧 (maintenance only)
 - [x] Step 25: overdue requests by priority (BR-17), oldest-first review queue (FR-18), overdue count on the overview (FR-29)
-- [ ] Step 26: more list filters: unit, assigned staff, date range (FR-22)
+- [x] Step 26: more list filters: unit, assigned staff, date range (FR-22)
 - [ ] Step 27: maintenance report: average time to resolve, busiest units and categories, average ratings (FR-22, FR-50)
 - [ ] Step 28: CSV export of the request list (FR-38)
 

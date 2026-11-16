@@ -68,7 +68,7 @@ async function findById(id) {
 /**
  * One page of requests in a building, newest activity first (FR-21, FR-22).
  * `scope` is what the user may see: { submittedBy } for residents, { assignedTo } for staff.
- * `filters` come from the list page: { statuses, category, priority, unassigned, overdue, q, sort }.
+ * `filters` come from the list page: { statuses, category, priority, unassigned, overdue, unitId, assignedTo, from, to, q, sort }.
  * sort 'oldest' puts the longest-waiting first (FR-18 review queue); otherwise newest activity first.
  * Returns { rows, total } where total counts every match, not just this page.
  */
@@ -86,6 +86,11 @@ async function listRequests(buildingId, scope = {}, filters = {}, { limit = 20, 
   if (filters.category) add('r.category = ?', filters.category);
   if (filters.unassigned) where.push('r.assigned_to IS NULL');
   if (filters.overdue) where.push(OVERDUE_SQL);
+  if (filters.unitId) add('r.unit_id = ?', filters.unitId);
+  if (filters.assignedTo) add('r.assigned_to = ?', filters.assignedTo);
+  // FR-22 date range on the submission day in Bangladesh time (§2.6); `to` includes that whole day.
+  if (filters.from) add("r.submitted_at >= (?::date)::timestamp AT TIME ZONE 'Asia/Dhaka'", filters.from);
+  if (filters.to) add("r.submitted_at < (?::date + 1)::timestamp AT TIME ZONE 'Asia/Dhaka'", filters.to);
   if (filters.priority === 'unset') where.push('r.priority IS NULL');
   else if (filters.priority) add('r.priority = ?::request_priority', filters.priority);
   // % and _ typed by the user are matched literally.
@@ -192,6 +197,21 @@ async function activeStaff(buildingId) {
   return rows.map((r) => ({ id: Number(r.id), fullName: r.full_name }));
 }
 
+/**
+ * FR-22: choices for the unit and staff filters: every unit, and every staff member,
+ * including deactivated ones, so their old requests can still be found.
+ */
+async function filterOptions(buildingId) {
+  const [units, staff] = await Promise.all([
+    db.query('SELECT id, unit_number FROM units WHERE building_id = $1 ORDER BY lower(unit_number)', [buildingId]),
+    db.query("SELECT id, full_name, is_active FROM users WHERE building_id = $1 AND role = 'staff' ORDER BY full_name", [buildingId]),
+  ]);
+  return {
+    units: units.rows.map((u) => ({ id: Number(u.id), unitNumber: u.unit_number })),
+    staff: staff.rows.map((s) => ({ id: Number(s.id), fullName: s.full_name, active: s.is_active })),
+  };
+}
+
 /** One active staff member of the building, or null (so nobody can assign a resident or an outsider). */
 async function findActiveStaff(client, buildingId, id) {
   const { rows } = await client.query(
@@ -272,7 +292,7 @@ async function insertRating(client, { buildingId, requestId, rating, comment, ra
 
 module.exports = {
   overview, autoCloseResolved, findRating, insertRating,
-  findForUpdate, updateRequest, activeStaff, findActiveStaff,
+  findForUpdate, updateRequest, activeStaff, findActiveStaff, filterOptions,
   activeUnitsOf, insertRequest, insertUpdate, findById, listRequests, listUpdates,
   insertAttachments, listAttachments, findAttachment,
 };

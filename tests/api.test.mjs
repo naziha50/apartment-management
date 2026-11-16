@@ -242,6 +242,48 @@ it('overdue requests: flag, filter, oldest-first queue and overview count (BR-17
   await call(U.tanvir, 'POST', `/maintenance/requests/${fresh}/transition`, { to: 'cancelled' });
 });
 
+it('filters by unit, assigned staff and submission date (FR-22)', async () => {
+  const units = (await call(U.rahima, 'GET', '/maintenance/my-units')).body.items;
+  const [first, second] = units.map((u) => u.id);
+  const make = async (title, unitId) =>
+    (await call(U.rahima, 'POST', '/maintenance/requests', { title, category: 'other', location: 'unit', description: 'x', unitId })).body.id;
+  const a = await make('Unit filter A', first);
+  const b = await make('Unit filter B', second);
+  const ids = async (query) =>
+    (await call(U.admin, 'GET', `/maintenance/requests?${new URLSearchParams({ q: 'Unit filter', ...query })}`)).body.items.map((r) => r.id).sort();
+
+  assert.deepEqual(await ids({ unitId: first }), [a]);
+  assert.deepEqual(await ids({ unitId: second }), [b]);
+
+  await call(U.admin, 'POST', `/maintenance/requests/${b}/assign`, { staffId: U.jamal });
+  assert.deepEqual(await ids({ assignedTo: U.jamal }), [b]);
+  assert.deepEqual(await ids({ assignedTo: U.karim }), []);
+
+  // Dates are Bangladesh days: 18:30 UTC on 1 Oct is already 2 Oct in Dhaka.
+  await pool.query("UPDATE maintenance_requests SET submitted_at = '2026-10-01T18:30:00Z' WHERE id = $1", [a]);
+  assert.deepEqual(await ids({ from: '2026-10-02', to: '2026-10-02' }), [a], 'the whole Dhaka day');
+  assert.deepEqual(await ids({ to: '2026-10-01' }), []);
+  assert.deepEqual(await ids({ from: '2026-10-03' }), [b]);
+
+  const bad = await call(U.admin, 'GET', '/maintenance/requests?from=2026-02-30&to=2026-01-01&unitId=x');
+  assert.equal(bad.status, 400);
+  assert.deepEqual(Object.keys(bad.body.error.fields).sort(), ['from', 'unitId']);
+  const backwards = await call(U.admin, 'GET', '/maintenance/requests?from=2026-02-01&to=2026-01-01');
+  assert.match(backwards.body.error.fields.to, /on or after/);
+
+  // A resident filtering by someone else's unit still sees only their own requests.
+  assert.equal((await call(U.tanvir, 'GET', `/maintenance/requests?unitId=${first}`)).body.total, 0);
+
+  const options = await call(U.karim, 'GET', '/maintenance/filter-options');
+  assert.equal(options.status, 200, 'view_all is enough, assign is not needed');
+  assert.ok(options.body.units.some((u) => u.id === first));
+  assert.ok(options.body.staff.some((st) => st.id === U.jamal));
+  assert.equal((await call(U.jamal, 'GET', '/maintenance/filter-options')).status, 403);
+  assert.equal((await call(U.tanvir, 'GET', '/maintenance/filter-options')).status, 403);
+
+  for (const id of [a, b]) await call(U.rahima, 'POST', `/maintenance/requests/${id}/transition`, { to: 'cancelled' });
+});
+
 it('photos: checked by content, served only to people who may see the request (BR-19)', async () => {
   const form = (files) => {
     const f = new FormData();

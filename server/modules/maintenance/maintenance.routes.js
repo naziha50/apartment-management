@@ -6,7 +6,9 @@
  *                    JSON, or multipart with up to 3 `photos` (BR-19)
  *   GET  /my-units   the resident's active apartments      FR-17
  *   GET  /requests   requests the user may see             FR-21
- *                    ?status=a,b&category=&priority=&q=&page=  FR-22
+ *                    ?status=a,b&category=&priority=&q=&assigned=none&overdue=1&sort=oldest
+ *                    &unitId=&assignedTo=&from=YYYY-MM-DD&to=YYYY-MM-DD&page=   FR-22, BR-17
+ *   GET  /filter-options  units and staff for the list filters    FR-22
  *   GET  /requests/:id  one request with its history       FR-21
  *   GET  /requests/:id/attachments/:attId  one photo       BR-19
  *   POST /requests/:id/transition  change status           FR-18, FR-20, BR-16
@@ -39,6 +41,10 @@ router.post('/requests', photosField, async (req, res) => {
 
 router.get('/requests', async (req, res) => {
   res.json(await service.listRequests(req.user, req.query));
+});
+
+router.get('/filter-options', async (req, res) => {
+  res.json(await service.filterOptions(req.user));
 });
 
 router.get('/requests/:id', async (req, res) => {

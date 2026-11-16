@@ -163,7 +163,13 @@ function parseFilters(query = {}) {
     overdue: v.oneOf('overdue', ['1'], { required: false, label: 'Overdue filter' }) === '1', // ?overdue=1 (BR-17)
     sort: v.oneOf('sort', ['oldest'], { required: false, label: 'Sort order' }), // ?sort=oldest (FR-18 review queue)
     q: typeof query.q === 'string' ? query.q.trim().slice(0, 100) || null : null,
+    unitId: v.id('unitId', { required: false, label: 'Apartment' }),
+    assignedTo: v.id('assignedTo', { required: false, label: 'Staff member' }),
+    from: v.date('from', { required: false, label: 'Start date' }),
+    to: v.date('to', { required: false, label: 'End date' }),
   };
+  // Dates in the same YYYY-MM-DD form compare correctly as text.
+  if (filters.from && filters.to && filters.from > filters.to) v.fail('to', 'The end date must be on or after the start date.');
   v.throwIfInvalid('Some filters are not valid.');
   return filters;
 }
@@ -335,6 +341,12 @@ async function overview(user) {
 /* ------------------------------------------------------------ FR-19 assign */
 
 /** Staff the user may assign requests to. */
+/** FR-22: units and staff for the list filters, for those who see every request. */
+async function filterOptions(user) {
+  if (!can(user, 'maintenance.view_all')) throw forbidden('Only the admin and staff who see all requests can use these filters.');
+  return repo.filterOptions(user.buildingId);
+}
+
 async function staffList(user) {
   if (!can(user, 'maintenance.assign')) throw forbidden('You cannot assign requests.');
   return repo.activeStaff(user.buildingId);
@@ -454,5 +466,5 @@ async function setPriority(user, rawId, body) {
 
 module.exports = {
   createRequest, myUnits, listRequests, getRequest, getAttachment,
-  transition, staffList, assign, addNote, setPriority, overview, autoCloseResolved, rate,
+  transition, staffList, filterOptions, assign, addNote, setPriority, overview, autoCloseResolved, rate,
 };

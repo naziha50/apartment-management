@@ -192,6 +192,8 @@ input[type="text"], input[type="search"], input[type="date"], input[type="number
   border: 1px solid #a9a69c; border-radius: var(--radius-sm);
 }
 textarea { min-height: 120px; resize: vertical; }
+/* The browser date picker is a few pixels taller than a select; keep filter rows level. */
+input[type="date"] { height: var(--tap); }
 input:hover, select:hover, textarea:hover { border-color: var(--ink-2); }
 [aria-invalid="true"] { border-color: var(--danger) !important; background: #fffafa; }
 fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }

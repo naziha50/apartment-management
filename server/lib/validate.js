@@ -66,6 +66,23 @@ class Validator {
     return n;
   }
 
+  /** A calendar date as YYYY-MM-DD (what <input type="date"> sends), or null if empty and not required. */
+  date(field, { required = true, label = field } = {}) {
+    const raw = this.source[field];
+    if (raw == null || raw === '') {
+      if (required) this.fail(field, `${label} is required.`);
+      return null;
+    }
+    const value = String(raw);
+    const d = new Date(`${value}T00:00:00Z`);
+    // The round trip rejects dates that do not exist, such as 2026-02-30.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== value) {
+      this.fail(field, `${label} must be a real date.`);
+      return null;
+    }
+    return value;
+  }
+
   get valid() {
     return Object.keys(this.errors).length === 0;
   }
