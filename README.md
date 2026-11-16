@@ -9,7 +9,7 @@ building admin and staff review, assign, track and resolve them (SRS v1.3, §4.3
 
 ## Status
 
-🚧 Work in progress — Sprint 3 (find and follow up) is done; the next sprint is not planned yet.
+🚧 Work in progress — Sprint 4 (close the loop).
 
 **Sprint 0 – Setup** ✅
 - [x] Step 1: Node.js project + Express server with a health check
@@ -38,6 +38,12 @@ building admin and staff review, assign, track and resolve them (SRS v1.3, §4.3
 - [x] Step 18: change the priority after review (FR-18)
 - [x] Step 19: maintenance overview for the admin (FR-29)
 - [x] Step 20: clean server shutdown + API integration tests (NFR-22)
+
+**Sprint 4 – Close the loop**
+- [x] Step 21: resolved requests close automatically after 7 days (BR-18)
+- [ ] Step 22: residents rate a closed request once (FR-50, BR-26)
+- [ ] Step 23: in-app notifications for status changes, assignments and notes (FR-25)
+- [ ] Step 24: photos on progress notes (BR-19)
 
 ## Frontend conventions
 
@@ -169,6 +175,11 @@ Who may change the status (rules in `server/modules/maintenance/state-machine.js
 | in progress → resolved | Admin or the assigned staff member | `note` |
 | resolved → closed | The resident who reported it | — |
 | resolved → in progress (reopen) | The resident, within 7 days of it being resolved | `note` |
+| resolved → closed (automatic) | The server ("System" in the history), 7 days after it was resolved if nobody reopened it (BR-18) | — |
+
+The automatic close runs when the server starts and then every hour. It is one database
+statement, so several server processes running it at once still close each request only once.
+Each request's `autoCloseAt` says when that will happen (null unless it is resolved).
 
 Categories: `plumbing`, `electrical`, `lift`, `generator`, `water_supply`, `gas`, `cleaning`,
 `security`, `common_area`, `other`.

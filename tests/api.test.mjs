@@ -238,6 +238,44 @@ it('photos: checked by content, served only to people who may see the request (B
   assert.equal((await call(U.sadia, 'GET', photoUrl)).status, 404);
 });
 
+it('resolved requests close by themselves after 7 days, exactly once (BR-18)', async () => {
+  const make = async (title) => (await call(U.tanvir, 'POST', '/maintenance/requests', { title, category: 'other', location: 'unit', description: 'x' })).body.id;
+  const old = await make('Resolved 8 days ago');
+  const recent = await make('Resolved 6 days ago');
+  // Jump straight to "resolved" in the past; the full path there is covered by the lifecycle test.
+  const resolve = (id, days) => pool.query(
+    `UPDATE maintenance_requests SET status = 'resolved', resolution_note = 'Fixed', resolved_at = now() - make_interval(days => $2) WHERE id = $1`,
+    [id, days],
+  );
+  await resolve(old, 8);
+  await resolve(recent, 6);
+
+  const recentBefore = (await call(U.tanvir, 'GET', `/maintenance/requests/${recent}`)).body;
+  const daysLeft = (new Date(recentBefore.autoCloseAt) - Date.now()) / 86400000;
+  assert.ok(daysLeft > 0.9 && daysLeft < 1.1, `closes in about 1 day (got ${daysLeft.toFixed(2)})`);
+
+  const { autoCloseResolved } = require('../server/modules/maintenance/maintenance.service');
+  assert.equal(await autoCloseResolved(), 1, 'only the 8-day-old one');
+  assert.equal(await autoCloseResolved(), 0, 'running again closes nothing twice');
+
+  const closed = (await call(U.tanvir, 'GET', `/maintenance/requests/${old}`)).body;
+  assert.equal(closed.status, 'closed');
+  assert.equal(closed.autoCloseAt, null);
+  const last = closed.updates.at(-1);
+  assert.equal(last.author, 'System');
+  assert.equal(last.toStatus, 'closed');
+  assert.match(last.note, /Closed automatically/);
+  assert.equal((await call(U.tanvir, 'GET', `/maintenance/requests/${recent}`)).body.status, 'resolved');
+
+  // Two server processes running the job at the same moment still close it only once.
+  const raced = await make('Resolved 9 days ago');
+  await resolve(raced, 9);
+  const counts = await Promise.all([autoCloseResolved(), autoCloseResolved()]);
+  assert.equal(counts[0] + counts[1], 1, `closed once in total (got ${counts})`);
+  const history = (await call(U.admin, 'GET', `/maintenance/requests/${raced}`)).body.updates;
+  assert.equal(history.filter((u) => u.toStatus === 'closed').length, 1, 'one history entry, not two');
+});
+
 it('request numbers keep working after 99,999 (migration 004)', async () => {
   // Safe: this file only ever talks to the test database, which is wiped on every run.
   await pool.query("SELECT setval('maintenance_request_number_seq', 99998)");

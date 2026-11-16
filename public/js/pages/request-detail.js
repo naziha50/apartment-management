@@ -9,7 +9,7 @@
  */
 import { api } from '../api.js';
 import { $, el, replace } from '../dom.js';
-import { LOCATION_LABELS, PRIORITY_LABELS, STATUS_LABELS, categoryLabel, formatDateTime, priorityBadge, statusBadge } from '../format.js';
+import { LOCATION_LABELS, PRIORITY_LABELS, STATUS_LABELS, categoryLabel, formatDate, formatDateTime, priorityBadge, statusBadge } from '../format.js';
 import { initLayout } from '../layout.js';
 import { animateIn, animateList, errorState, showFieldErrors, toast, withBusy } from '../ui.js';
 
@@ -240,6 +240,16 @@ function render(r, user) {
       el('div', {}, el('p', { class: 'muted', text: r.requestNumber }), el('h1', { text: r.title })),
       statusBadge(r.status),
     ),
+    // BR-18: a resolved request closes by itself; say when, so nobody is surprised.
+    r.autoCloseAt
+      ? el(
+          'p',
+          { class: 'callout callout--info' },
+          user.role === 'resident'
+            ? `Please check the fix. If the problem is still there, choose “It is not fixed” below. Otherwise this request closes automatically on ${formatDate(r.autoCloseAt)}.`
+            : `Waiting for the resident to confirm. It closes automatically on ${formatDate(r.autoCloseAt)} unless they reopen it.`,
+        )
+      : null,
     r.allowed.transitions.length || r.allowed.assign || r.allowed.addNote || r.allowed.setPriority
       ? el(
           'section',

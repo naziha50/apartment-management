@@ -10,10 +10,8 @@
  *       └─► rejected
  */
 const { can } = require('../../middleware/current-user');
-const { FINAL_STATUSES, NEEDS_ACTION } = require('./maintenance.constants');
+const { FINAL_STATUSES, NEEDS_ACTION, RESOLVED_DAYS } = require('./maintenance.constants');
 
-// BR-18: a resident may reopen a resolved request within this many days.
-const REOPEN_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const isAdmin = (user) => user?.role === 'admin';
@@ -42,7 +40,7 @@ const TRANSITIONS = Object.freeze([
     to: 'in_progress',
     needs: 'note',
     kind: 'reopen',
-    who: (r, u, now) => isSubmitter(r, u) && withinDays(r.resolved_at, REOPEN_DAYS, now),
+    who: (r, u, now) => isSubmitter(r, u) && withinDays(r.resolved_at, RESOLVED_DAYS, now),
   },
 ]);
 

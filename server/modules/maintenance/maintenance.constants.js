@@ -19,7 +19,11 @@ const FINAL_STATUSES = Object.freeze(['closed', 'rejected', 'cancelled']);
 // Someone in the office or on staff still has to act (assigning is allowed, the overview counts these).
 const NEEDS_ACTION = Object.freeze(['submitted', 'under_review', 'in_progress']);
 
+// BR-18: after a request is resolved, the resident has this many days to reopen it;
+// after that it is closed automatically. One number for both, so they always agree.
+const RESOLVED_DAYS = 7;
+
 // FR-18
 const PRIORITIES = Object.freeze(['low', 'medium', 'high']);
 
-module.exports = { CATEGORIES, LOCATIONS, STATUSES, FINAL_STATUSES, NEEDS_ACTION, PRIORITIES };
+module.exports = { CATEGORIES, LOCATIONS, STATUSES, FINAL_STATUSES, NEEDS_ACTION, RESOLVED_DAYS, PRIORITIES };

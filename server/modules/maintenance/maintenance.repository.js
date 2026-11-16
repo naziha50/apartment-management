@@ -209,8 +209,30 @@ async function overview(buildingId) {
   return Object.fromEntries(Object.entries(rows[0]).map(([k, v]) => [k, Number(v)]));
 }
 
+/**
+ * BR-18: closes every request resolved more than `days` ago and records it in the
+ * history as "System", in one statement. If two server processes run it at the same
+ * time, row locks make the second one skip what the first already closed.
+ * Returns the ids that were closed.
+ */
+async function autoCloseResolved(days, note) {
+  const { rows } = await db.query(
+    `WITH closed AS (
+       UPDATE maintenance_requests
+          SET status = 'closed', closed_at = now(), updated_at = now()
+        WHERE status = 'resolved' AND resolved_at <= now() - make_interval(days => $1)
+        RETURNING id
+     )
+     INSERT INTO request_updates (request_id, author_id, kind, from_status, to_status, note)
+     SELECT id, NULL, 'status_change', 'resolved', 'closed', $2 FROM closed
+     RETURNING request_id`,
+    [days, note],
+  );
+  return rows.map((r) => Number(r.request_id));
+}
+
 module.exports = {
-  overview,
+  overview, autoCloseResolved,
   findForUpdate, updateRequest, activeStaff, findActiveStaff,
   activeUnitsOf, insertRequest, insertUpdate, findById, listRequests, listUpdates,
   insertAttachments, listAttachments, findAttachment,

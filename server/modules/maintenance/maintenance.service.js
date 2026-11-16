@@ -11,7 +11,7 @@ const db = require('../../db/pool');
 const repo = require('./maintenance.repository');
 const uploads = require('./uploads');
 const sm = require('./state-machine');
-const { CATEGORIES, LOCATIONS, STATUSES, PRIORITIES } = require('./maintenance.constants');
+const { CATEGORIES, LOCATIONS, STATUSES, PRIORITIES, RESOLVED_DAYS } = require('./maintenance.constants');
 const { Validator } = require('../../lib/validate');
 const { forbidden, notFound, conflict } = require('../../lib/errors');
 const { can } = require('../../middleware/current-user');
@@ -32,6 +32,11 @@ function toDto(r) {
     assignedTo: r.assigned_to ? { id: Number(r.assigned_to), fullName: r.assigned_to_name } : null,
     submittedAt: r.submitted_at,
     updatedAt: r.updated_at,
+    resolvedAt: r.resolved_at,
+    // BR-18: when a resolved request will close by itself if the resident does nothing.
+    autoCloseAt: r.status === 'resolved' && r.resolved_at
+      ? new Date(new Date(r.resolved_at).getTime() + RESOLVED_DAYS * 24 * 60 * 60 * 1000).toISOString()
+      : null,
   };
 }
 
@@ -261,6 +266,17 @@ async function getAttachment(user, rawRequestId, rawAttachmentId) {
   return { file, mimeType: att.mime_type, name: att.original_name };
 }
 
+/* ------------------------------------------------------- BR-18 auto-close */
+
+/** BR-18: closes resolved requests the resident has not reopened within RESOLVED_DAYS. Returns how many. */
+async function autoCloseResolved() {
+  const ids = await repo.autoCloseResolved(
+    RESOLVED_DAYS,
+    `Closed automatically: nobody reopened it within ${RESOLVED_DAYS} days of being resolved.`,
+  );
+  return ids.length;
+}
+
 /* --------------------------------------------------------- FR-29 overview */
 
 /** FR-29: request counts for the building. They cover every request, so only users who may see all of them get it. */
@@ -368,5 +384,5 @@ async function setPriority(user, rawId, body) {
 
 module.exports = {
   createRequest, myUnits, listRequests, getRequest, getAttachment,
-  transition, staffList, assign, addNote, setPriority, overview,
+  transition, staffList, assign, addNote, setPriority, overview, autoCloseResolved,
 };
