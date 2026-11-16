@@ -132,3 +132,15 @@ test('a request from a scheduled task is due at the end of its due day in Dhaka,
   assert.equal(isOverdue(r, new Date('2026-11-20T17:59:00Z')), false, 'not overdue on its due day, even past the 24-hour target');
   assert.equal(isOverdue(r, new Date('2026-11-20T18:01:00Z')), true);
 });
+
+test('requests from a scheduled task: only the admin closes them, nobody rates them (Appendix A, BR-25, BR-26)', () => {
+  const scheduled = { submitted_by: null, assigned_to: 3, scheduled_task_id: 7, due_date: '2026-11-20', resolved_at: '2026-11-15T00:00:00Z' };
+  const resolved = req({ ...scheduled, status: 'resolved' });
+  assert.deepEqual(allowedTransitions(resolved, admin), [{ to: 'closed', needs: null, kind: 'office_close' }]);
+  assert.deepEqual(moves(resolved, caretaker), [], 'the assignee does not close their own job');
+  assert.deepEqual(moves(resolved, reviewer), []);
+  assert.deepEqual(moves(req({ status: 'resolved', resolved_at: '2026-11-15T00:00:00Z' }), admin), [], "a resident's request is still closed by the resident");
+
+  const closed = req({ ...scheduled, status: 'closed', closed_at: '2026-11-16T00:00:00Z' });
+  for (const u of [admin, resident]) assert.match(ratingProblem(closed, u, { now: new Date('2026-11-17T00:00:00Z') }), /scheduled task are not rated/);
+});

@@ -462,7 +462,21 @@ it('scheduled tasks become requests 7 days before they are due, exactly once (BR
   const twinNext = (await pool.query("SELECT to_char($1::date + interval '1 month', 'YYYY-MM-DD') AS d", [day(3)])).rows[0].d;
   assert.equal((await task(twin.id)).nextDueDate, twinNext, 'moved forward once, not twice');
 
-  for (const title of ['Generator check', 'Fire extinguisher check', 'Roof drain clearing', 'Twin run']) {
+  // Appendix A: no resident to confirm, so the admin closes it; nobody rates it (BR-26).
+  const job = `/maintenance/requests/${r.id}`;
+  assert.equal((await call(U.jamal, 'POST', `${job}/transition`, { to: 'in_progress' })).status, 200);
+  assert.equal((await call(U.jamal, 'POST', `${job}/transition`, { to: 'resolved', note: 'Generator serviced' })).status, 200);
+  assert.deepEqual((await call(U.jamal, 'GET', job)).body.allowed.transitions, [], 'the assignee cannot close it');
+  assert.deepEqual((await call(U.admin, 'GET', job)).body.allowed.transitions, [{ to: 'closed', needs: null, kind: 'office_close' }]);
+  const closedJob = await call(U.admin, 'POST', `${job}/transition`, { to: 'closed' });
+  assert.equal(closedJob.body.status, 'closed');
+  assert.equal(closedJob.body.allowed.rate, false);
+  const rateJob = await call(U.admin, 'POST', `${job}/rating`, { rating: 5 });
+  assert.equal(rateJob.status, 403);
+  assert.match(rateJob.body.error.message, /not rated/);
+  assert.ok((await messages(U.jamal)).some((m) => m.includes(r.requestNumber) && /closed/i.test(m)), 'the assignee hears it was closed');
+
+  for (const title of ['Fire extinguisher check', 'Roof drain clearing', 'Twin run']) {
     await call(U.admin, 'POST', `/maintenance/requests/${(await requestFor(title)).id}/transition`, { to: 'rejected', note: 'Test data' });
   }
 });

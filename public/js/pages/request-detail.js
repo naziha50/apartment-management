@@ -25,13 +25,15 @@ const ACTIONS = {
   in_progress: { label: 'Start work', hint: 'The resident will see that work has started.', submit: 'Start work' },
   resolved: { label: 'Mark as resolved', hint: 'Say what was done to fix it. The resident will be asked to confirm.', submit: 'Mark as resolved' },
   closed: { label: 'Yes, it is fixed', hint: 'This closes the request.', submit: 'Close request' },
+  // Appendix A: the admin closes a scheduled job's request; there is no resident to confirm it.
+  office_close: { label: 'Close request', hint: 'The scheduled job is done. This closes the request.', submit: 'Close request' },
   cancelled: { label: 'Cancel request', hint: 'Use this if the problem has gone away. This cannot be undone.', submit: 'Cancel request', danger: true },
   reopen: { label: 'It is not fixed', hint: 'Tell us what is still wrong. The request goes back to In progress.', submit: 'Reopen request' },
 };
 
 /** One move as a disclosure: the summary names it; inside are the fields it needs and a confirm button. */
 function actionForm(r, user, t) {
-  const a = ACTIONS[t.kind === 'reopen' ? 'reopen' : t.to];
+  const a = ACTIONS[t.kind || t.to];
   const key = t.kind || t.to;
   const fields = [];
   if (t.needs === 'priority') {
@@ -259,7 +261,9 @@ function render(r, user) {
     ['Category', categoryLabel(r.category)],
     ['Location', LOCATION_LABELS[r.location]],
     ['Apartment', r.unit?.unitNumber || '—'],
-    ['Submitted by', r.submittedBy?.fullName || '—'],
+    // BR-25: requests from a scheduled task have no resident; the system created them.
+    ['Submitted by', r.submittedBy?.fullName || (r.scheduledTask ? 'System (scheduled task)' : '—')],
+    r.scheduledTask ? ['Scheduled job due', formatDate(r.scheduledTask.dueDate)] : null,
     ['Submitted', formatDateTime(r.submittedAt)],
     ['Priority', priorityBadge(r.priority)],
     ['Assigned to', r.assignedTo?.fullName || 'Not assigned yet'],
@@ -309,7 +313,9 @@ function render(r, user) {
       ? el(
           'p',
           { class: 'callout callout--info' },
-          user.role === 'resident'
+          r.scheduledTask
+            ? `Scheduled job done. Waiting for the admin to close it; otherwise it closes automatically on ${formatDate(r.autoCloseAt)}.`
+            : user.role === 'resident'
             ? `Please check the fix. If the problem is still there, choose “It is not fixed” below. Otherwise this request closes automatically on ${formatDate(r.autoCloseAt)}.`
             : `Waiting for the resident to confirm. It closes automatically on ${formatDate(r.autoCloseAt)} unless they reopen it.`,
         )
@@ -337,7 +343,7 @@ function render(r, user) {
         'section',
         { class: 'card' },
         el('h2', { text: 'Details' }),
-        el('dl', { class: 'details' }, details.map(([k, v]) => [el('dt', { text: k }), el('dd', {}, v)])),
+        el('dl', { class: 'details' }, details.filter(Boolean).map(([k, v]) => [el('dt', { text: k }), el('dd', {}, v)])),
       ),
       el('section', { class: 'card' }, el('h2', { text: 'Description' }), el('p', { class: 'prewrap', text: r.description })),
     ),

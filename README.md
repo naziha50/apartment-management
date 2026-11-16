@@ -107,7 +107,7 @@ New modules (billing, announcements, …) will follow the same pattern next to `
 | **FR-50** Rate a request | 1–5 stars and an optional comment, once, within 7 days after closing. The admin and assignee see it; the report shows the average rating overall, per category and per staff member |
 | **BR-16** Statuses | Seven statuses and the allowed moves of Appendix A, enforced on the server |
 | **BR-17** Resolution targets | High 24 hours, Medium 3 days, Low 7 days from submission; without a priority it must be reviewed within 2 days. A request still needing action past its target is *overdue*: shown on the lists, the request page ("Resolve by" / "Review by") and the overview, and filterable. The targets are fixed in `maintenance.constants.js` until a settings screen exists |
-| **BR-25** Scheduled tasks | 7 days before a task's due date the server creates its request: common area, Medium, *Under review*, submitted by "System", assigned to the task's default assignee (if still active staff). Its deadline is the end of the due day, not the BR-17 target. The task then moves forward by its interval. Paused tasks create nothing. The assignee is notified, or the office when nobody is assigned |
+| **BR-25** Scheduled tasks | 7 days before a task's due date the server creates its request: common area, Medium, *Under review*, submitted by "System", assigned to the task's default assignee (if still active staff). Its deadline is the end of the due day, not the BR-17 target. The task then moves forward by its interval. Paused tasks create nothing. The assignee is notified, or the office when nobody is assigned. There is no resident to confirm these requests, so once resolved **the admin closes them** (or they close by themselves after 7 days); they show "System (scheduled task)" as the submitter and are never rated |
 | **BR-18** Auto-close | A *Resolved* request closes by itself 7 days later unless reopened |
 | **BR-19** Photos | JPG, PNG or WEBP, 5 MB each, up to 3; checked by file *content*, saved under random names |
 | **BR-26** Ratings | Once only, never changed (one rating per request is enforced by the database) |
@@ -129,7 +129,7 @@ New modules (billing, announcements, …) will follow the same pattern next to `
 
 ### Not built yet in the maintenance module
 
-- **FR-49 / BR-25 Scheduled maintenance tasks:** tasks can be managed through the API and turn into requests by themselves (Steps 29–30); the closing rule for these requests and the page come in Steps 31–32.
+- **FR-49 / BR-25 Scheduled maintenance tasks:** tasks can be managed through the API and turn into requests by themselves (Steps 29–30); the page to manage them comes in Step 32.
 - Real login (FR-01, FR-02) — see the next sections.
 
 ---
@@ -294,6 +294,7 @@ submitted ──► under_review ──► in_progress ──► resolved ──
 | under review → in progress | Admin or the assigned staff member, once someone is assigned | — |
 | in progress → resolved | Admin or the assigned staff member | `note` |
 | resolved → closed | The resident who reported it | — |
+| resolved → closed | The admin, only for requests created by a scheduled task (no resident to confirm, Appendix A) | — |
 | resolved → in progress (reopen) | The resident, within 7 days of it being resolved | `note` |
 | resolved → closed (automatic) | The server ("System" in the history), 7 days after it was resolved (BR-18) | — |
 
@@ -348,7 +349,7 @@ All endpoints are under `/api/v1` and need a "Viewing as" user (`X-User-Id` head
 | `POST /requests/:id/assign` | Admin, staff with `maintenance.assign` | Assign or reassign. Body: `staffId`. Only while submitted, under review or in progress (else 409 `NOT_ASSIGNABLE`) |
 | `POST /requests/:id/notes` | Admin, the assignee, staff with `maintenance.review` | Add a note. Body: `note`, optional `internal: true`. `multipart/form-data` to add up to 3 `photos`. Not allowed once the request is final |
 | `PATCH /requests/:id/priority` | Admin, staff with `maintenance.review` | Change the priority while under review or in progress (else 409 `PRIORITY_LOCKED`) |
-| `POST /requests/:id/rating` | The resident who reported it | Body: `rating` (1–5), optional `comment` (≤ 500 chars). Once, within 7 days of closing (else 409 `RATING_NOT_ALLOWED`) |
+| `POST /requests/:id/rating` | The resident who reported it | Body: `rating` (1–5), optional `comment` (≤ 500 chars). Once, within 7 days of closing (else 409 `RATING_NOT_ALLOWED`). Requests from a scheduled task are not rated |
 | `GET /overview` | Admin, staff with `maintenance.view_all` | Counts for the home page: per status, `unassigned`, `high_open`, `overdue` |
 | `GET /staff` | Admin, staff with `maintenance.assign` | Active staff, for the "assign to" picker |
 | `GET /export.csv` | Admin and staff | The request list as CSV (FR-38), with the same filters and the same "who sees what" as `GET /requests`, every page at once (up to 10,000 rows; more answers 400 asking for narrower filters). UTF-8 with a byte-order mark; formula-like cells are prefixed with `'` |
@@ -439,7 +440,7 @@ development data is never touched; the tests refuse to run against the developme
 Test photos go to a temporary folder that is deleted afterwards. If PostgreSQL is not running,
 the API tests are skipped with the reason shown and the other tests still run.
 
-Current result: **33 tests, all passing.**
+Current result: **34 tests, all passing.**
 
 ---
 
@@ -550,7 +551,7 @@ storage/         uploaded photos (git-ignored)
 **Sprint 6 – Scheduled maintenance** 🚧 (FR-49, BR-25; the last part of the maintenance module)
 - [x] Step 29: scheduled tasks table and API: create, edit, pause, resume, list (who: admin, staff with `maintenance.assign`)
 - [x] Step 30: 7 days before a task is due the server creates the request (common area, Medium, Under review, by "System", assigned to the default assignee), with the task's due date as its deadline; the task moves forward by its interval; safe with several server processes
-- [ ] Step 31: rules for these requests: the admin closes them (no resident to confirm, Appendix A), no rating
+- [x] Step 31: rules for these requests: the admin closes them (no resident to confirm, Appendix A), no rating
 - [ ] Step 32: "Scheduled tasks" page: list, form, pause / resume, due in the next 90 days
 
 ---

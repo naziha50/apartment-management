@@ -36,6 +36,8 @@ const TRANSITIONS = Object.freeze([
   { from: ['under_review'], to: 'in_progress', who: (r, u) => r.assigned_to != null && (isAdmin(u) || isAssignedStaff(r, u)) },
   { from: ['in_progress'], to: 'resolved', needs: 'note', who: (r, u) => isAdmin(u) || isAssignedStaff(r, u) },
   { from: ['resolved'], to: 'closed', who: (r, u) => isSubmitter(r, u) },
+  // Appendix A / BR-25: a request from a scheduled task has no resident to confirm it, so the admin closes it.
+  { from: ['resolved'], to: 'closed', kind: 'office_close', who: (r, u) => r.scheduled_task_id != null && isAdmin(u) },
   {
     from: ['resolved'],
     to: 'in_progress',
@@ -80,6 +82,7 @@ function canSetPriority(request, user) {
  * The resident who reported it rates once, after it is closed, within RATING_DAYS.
  */
 function ratingProblem(request, user, { alreadyRated = false, now = new Date() } = {}) {
+  if (request.scheduled_task_id != null) return 'Requests from a scheduled task are not rated.';
   if (!isSubmitter(request, user)) return 'Only the resident who reported it can rate it.';
   if (alreadyRated) return 'This request has already been rated.';
   if (request.status !== 'closed') return 'You can rate a request once it is closed.';
