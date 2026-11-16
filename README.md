@@ -99,11 +99,11 @@ New modules (billing, announcements, …) will follow the same pattern next to `
 | **FR-19** Assign to staff | Pick an active staff member, reassign later. Every change is kept in the history and the new assignee is notified |
 | **FR-20** Status and progress | Only the moves in SRS Appendix A are offered. *Resolved* needs a note. Notes can be internal (hidden from the resident) and can carry up to 3 photos. Updates are saved with name and time and cannot be edited |
 | **FR-21** Track my requests | Residents see status, priority, assignee and non-internal notes of their own requests only |
-| **FR-22** History and reports | Lists with filters by status, category, priority, apartment, assigned staff (or nobody), overdue, and submission date range (Bangladesh days), plus search by title or number; 20 per page |
+| **FR-22** History and reports | Lists with filters by status, category, priority, apartment, assigned staff (or nobody), overdue, and submission date range (Bangladesh days), plus search by title or number; 20 per page. A **Report** page (admin, staff with `reports.view`) shows, for any period: requests per status and category, average time to resolve overall, per category and per staff member, and the 5 apartments with the most requests |
 | **FR-25 / FR-26** Notifications | Bell with unread count on every page, kept current while the page is open; list of past notifications, mark one or all as read; clicking opens the request |
 | **FR-29** Maintenance overview | Admin home page shows overdue requests (highlighted), counts per status, unassigned and open high-priority requests; each count links to the filtered list |
 | **FR-35** Cancel, confirm, reopen | Cancel while *Submitted*; confirm a *Resolved* request (→ *Closed*) or reopen it within 7 days with a comment |
-| **FR-50** Rate a request | 1–5 stars and an optional comment, once, within 7 days after closing. The admin and assignee see it |
+| **FR-50** Rate a request | 1–5 stars and an optional comment, once, within 7 days after closing. The admin and assignee see it; the report shows the average rating overall, per category and per staff member |
 | **BR-16** Statuses | Seven statuses and the allowed moves of Appendix A, enforced on the server |
 | **BR-17** Resolution targets | High 24 hours, Medium 3 days, Low 7 days from submission; without a priority it must be reviewed within 2 days. A request still needing action past its target is *overdue*: shown on the lists, the request page ("Resolve by" / "Review by") and the overview, and filterable. The targets are fixed in `maintenance.constants.js` until a settings screen exists |
 | **BR-18** Auto-close | A *Resolved* request closes by itself 7 days later unless reopened |
@@ -127,8 +127,6 @@ New modules (billing, announcements, …) will follow the same pattern next to `
 
 ### Not built yet in the maintenance module
 
-- **FR-22** average time to resolve; busiest units and categories.
-- **FR-50** average rating in the reports.
 - **FR-49 / BR-25 Scheduled maintenance tasks** (e.g. monthly lift servicing).
 - **FR-38** CSV export of the request list.
 - Real login (FR-01, FR-02) — see the next sections.
@@ -346,6 +344,7 @@ All endpoints are under `/api/v1` and need a "Viewing as" user (`X-User-Id` head
 | `POST /requests/:id/rating` | The resident who reported it | Body: `rating` (1–5), optional `comment` (≤ 500 chars). Once, within 7 days of closing (else 409 `RATING_NOT_ALLOWED`) |
 | `GET /overview` | Admin, staff with `maintenance.view_all` | Counts for the home page: per status, `unassigned`, `high_open`, `overdue` |
 | `GET /staff` | Admin, staff with `maintenance.assign` | Active staff, for the "assign to" picker |
+| `GET /report` | Admin, staff with `reports.view` | The maintenance report for requests submitted between `from` and `to` (optional `YYYY-MM-DD`, Bangladesh days): `byStatus`, `overall`, `byCategory` (busiest first), `topUnits` (5, problems inside the apartment only) and `byStaff`. Each figure set has `requests`, `resolved`, `avgHoursToResolve`, `ratings` and `avgRating` (null when there is nothing to average). Time to resolve runs from submission to the latest resolve |
 | `GET /filter-options` | Admin, staff with `maintenance.view_all` | `{ units, staff }` for the list filters; staff includes deactivated members (`active: false`) so their old requests can still be found |
 | `GET /my-units` | Residents | The resident's active units, for the unit picker |
 
@@ -417,7 +416,7 @@ npm test
 |---|---|
 | `tests/state-machine.test.js` | The rules on their own: who may change the status, assign, add notes, change the priority or rate; deadlines and overdue (BR-17) |
 | `tests/uploads.test.js` | Photo checks: real images pass, renamed files are refused |
-| `tests/api.test.mjs` | The real API over HTTP: submitting, who sees what, a request's whole life, internal notes and their photos, filters (including unit, staff and Bangladesh-day date range), the overview, ratings, auto-close, notifications, uploads and overdue requests |
+| `tests/api.test.mjs` | The real API over HTTP: submitting, who sees what, a request's whole life, internal notes and their photos, filters (including unit, staff and Bangladesh-day date range), the overview, ratings, auto-close, notifications, uploads, overdue requests and the report |
 
 The API tests use a **separate test database** (`DATABASE_URL` with `_test` added, or
 `TEST_DATABASE_URL`). It is created if needed and **wiped and re-seeded on every run**, so your
@@ -425,7 +424,7 @@ development data is never touched; the tests refuse to run against the developme
 Test photos go to a temporary folder that is deleted afterwards. If PostgreSQL is not running,
 the API tests are skipped with the reason shown and the other tests still run.
 
-Current result: **26 tests, all passing.**
+Current result: **27 tests, all passing.**
 
 ---
 
@@ -469,6 +468,7 @@ public/
   resident/new-request.html   report a problem
   resident/requests.html      my requests
   manage/requests.html        request list with filters, for admin and staff
+  manage/report.html          maintenance report (admin, staff with reports.view)
   css/main.css                the one stylesheet
   js/api.js                   fetch wrapper that sends X-User-Id
   js/dom.js                   safe element helpers
@@ -527,7 +527,7 @@ storage/         uploaded photos (git-ignored)
 **Sprint 5 – Deadlines and reports** 🚧 (maintenance only)
 - [x] Step 25: overdue requests by priority (BR-17), oldest-first review queue (FR-18), overdue count on the overview (FR-29)
 - [x] Step 26: more list filters: unit, assigned staff, date range (FR-22)
-- [ ] Step 27: maintenance report: average time to resolve, busiest units and categories, average ratings (FR-22, FR-50)
+- [x] Step 27: maintenance report: average time to resolve, busiest units and categories, average ratings (FR-22, FR-50)
 - [ ] Step 28: CSV export of the request list (FR-38)
 
 Next: scheduled maintenance tasks (FR-49, BR-25).

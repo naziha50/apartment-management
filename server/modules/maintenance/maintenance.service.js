@@ -341,6 +341,17 @@ async function overview(user) {
 /* ------------------------------------------------------------ FR-19 assign */
 
 /** Staff the user may assign requests to. */
+/** FR-22 / FR-50: the maintenance report for requests submitted between two Bangladesh days (both optional). */
+async function report(user, query = {}) {
+  if (!can(user, 'reports.view')) throw forbidden('Only the admin and staff with the reports permission can view the maintenance report.');
+  const v = new Validator(query);
+  const from = v.date('from', { required: false, label: 'Start date' });
+  const to = v.date('to', { required: false, label: 'End date' });
+  if (from && to && from > to) v.fail('to', 'The end date must be on or after the start date.');
+  v.throwIfInvalid('Please choose a valid period.');
+  return { from, to, ...(await repo.report(user.buildingId, { from, to })) };
+}
+
 /** FR-22: units and staff for the list filters, for those who see every request. */
 async function filterOptions(user) {
   if (!can(user, 'maintenance.view_all')) throw forbidden('Only the admin and staff who see all requests can use these filters.');
@@ -466,5 +477,5 @@ async function setPriority(user, rawId, body) {
 
 module.exports = {
   createRequest, myUnits, listRequests, getRequest, getAttachment,
-  transition, staffList, filterOptions, assign, addNote, setPriority, overview, autoCloseResolved, rate,
+  transition, staffList, filterOptions, report, assign, addNote, setPriority, overview, autoCloseResolved, rate,
 };

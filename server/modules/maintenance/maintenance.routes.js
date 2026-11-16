@@ -9,6 +9,8 @@
  *                    ?status=a,b&category=&priority=&q=&assigned=none&overdue=1&sort=oldest
  *                    &unitId=&assignedTo=&from=YYYY-MM-DD&to=YYYY-MM-DD&page=   FR-22, BR-17
  *   GET  /filter-options  units and staff for the list filters    FR-22
+ *   GET  /report     ?from=&to= (YYYY-MM-DD) status counts, time to resolve,
+ *                    busiest units, ratings per category and staff    FR-22, FR-50
  *   GET  /requests/:id  one request with its history       FR-21
  *   GET  /requests/:id/attachments/:attId  one photo       BR-19
  *   POST /requests/:id/transition  change status           FR-18, FR-20, BR-16
@@ -41,6 +43,10 @@ router.post('/requests', photosField, async (req, res) => {
 
 router.get('/requests', async (req, res) => {
   res.json(await service.listRequests(req.user, req.query));
+});
+
+router.get('/report', async (req, res) => {
+  res.json(await service.report(req.user, req.query));
 });
 
 router.get('/filter-options', async (req, res) => {

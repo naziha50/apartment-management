@@ -284,6 +284,54 @@ it('filters by unit, assigned staff and submission date (FR-22)', async () => {
   for (const id of [a, b]) await call(U.rahima, 'POST', `/maintenance/requests/${id}/transition`, { to: 'cancelled' });
 });
 
+it('maintenance report: counts, time to resolve, busiest units and ratings for a period (FR-22, FR-50)', async () => {
+  const make = async (title, category, location = 'unit') =>
+    (await call(U.tanvir, 'POST', '/maintenance/requests', { title, category, location, description: 'x' })).body.id;
+  const a = await make('Report A', 'plumbing');
+  const b = await make('Report B', 'plumbing');
+  const c = await make('Report C', 'electrical');
+  const d = await make('Report D', 'cleaning', 'common_area');
+  // A day no other test uses: 10 Jan 2025, 10:00 in Dhaka.
+  await pool.query("UPDATE maintenance_requests SET submitted_at = '2025-01-10T04:00:00Z' WHERE id = ANY($1)", [[a, b, c, d]]);
+
+  const finish = async (id, hours) => {
+    const url = `/maintenance/requests/${id}/transition`;
+    await call(U.admin, 'POST', url, { to: 'under_review', priority: 'medium' });
+    await call(U.admin, 'POST', `/maintenance/requests/${id}/assign`, { staffId: U.jamal });
+    await call(U.admin, 'POST', url, { to: 'in_progress' });
+    await call(U.admin, 'POST', url, { to: 'resolved', note: 'Fixed' });
+    await pool.query(`UPDATE maintenance_requests SET resolved_at = submitted_at + make_interval(hours => $2) WHERE id = $1`, [id, hours]);
+  };
+  await finish(a, 10);
+  await finish(b, 30);
+  await call(U.tanvir, 'POST', `/maintenance/requests/${a}/transition`, { to: 'closed' });
+  assert.equal((await call(U.tanvir, 'POST', `/maintenance/requests/${a}/rating`, { rating: 4 })).status, 201);
+
+  const res = await call(U.admin, 'GET', '/maintenance/report?from=2025-01-10&to=2025-01-10');
+  assert.equal(res.status, 200);
+  const r = res.body;
+  assert.deepEqual(r.byStatus, { closed: 1, resolved: 1, submitted: 2 });
+  assert.deepEqual(r.overall, { requests: 4, resolved: 2, avgHoursToResolve: 20, ratings: 1, avgRating: 4 });
+  assert.deepEqual(r.byCategory[0], { category: 'plumbing', requests: 2, resolved: 2, avgHoursToResolve: 20, ratings: 1, avgRating: 4 }, 'busiest category first');
+  assert.equal(r.byCategory.find((x) => x.category === 'electrical').avgHoursToResolve, null, 'nothing resolved yet');
+  assert.equal(r.topUnits.length, 1, 'the common-area report does not count for the unit');
+  assert.equal(r.topUnits[0].requests, 3);
+  assert.deepEqual(r.byStaff, [{ id: U.jamal, fullName: 'Jamal Hossain', requests: 2, resolved: 2, avgHoursToResolve: 20, ratings: 1, avgRating: 4 }]);
+
+  const empty = (await call(U.admin, 'GET', '/maintenance/report?from=2025-01-11&to=2025-01-11')).body;
+  assert.deepEqual(empty.overall, { requests: 0, resolved: 0, avgHoursToResolve: null, ratings: 0, avgRating: null });
+  assert.deepEqual(empty.byCategory, []);
+
+  assert.equal((await call(U.admin, 'GET', '/maintenance/report?from=2025-02-01&to=2025-01-01')).status, 400);
+  assert.equal((await call(U.karim, 'GET', '/maintenance/report')).status, 403, 'view_all is not reports.view');
+  assert.equal((await call(U.tanvir, 'GET', '/maintenance/report')).status, 403);
+
+  // Leave nothing open or resolved for the tests that follow (auto-close counts resolved requests).
+  await call(U.tanvir, 'POST', `/maintenance/requests/${b}/transition`, { to: 'closed' });
+  await call(U.tanvir, 'POST', `/maintenance/requests/${c}/transition`, { to: 'cancelled' });
+  await call(U.admin, 'POST', `/maintenance/requests/${d}/transition`, { to: 'rejected', note: 'Test data' });
+});
+
 it('photos: checked by content, served only to people who may see the request (BR-19)', async () => {
   const form = (files) => {
     const f = new FormData();

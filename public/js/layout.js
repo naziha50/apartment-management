@@ -55,8 +55,16 @@ const NAV = {
     { key: 'requests', label: 'My requests', href: '/resident/requests.html' },
     { key: 'newRequest', label: 'Report a problem', href: '/resident/new-request.html' },
   ],
-  staff: [{ key: 'home', label: 'Home', href: '/' }, { key: 'requests', label: 'Requests', href: '/manage/requests.html' }],
-  admin: [{ key: 'home', label: 'Home', href: '/' }, { key: 'requests', label: 'Requests', href: '/manage/requests.html' }],
+  staff: [
+    { key: 'home', label: 'Home', href: '/' },
+    { key: 'requests', label: 'Requests', href: '/manage/requests.html' },
+    { key: 'report', label: 'Report', href: '/manage/report.html', permission: 'reports.view' }, // FR-22, Appendix B
+  ],
+  admin: [
+    { key: 'home', label: 'Home', href: '/' },
+    { key: 'requests', label: 'Requests', href: '/manage/requests.html' },
+    { key: 'report', label: 'Report', href: '/manage/report.html' },
+  ],
 };
 
 function canSee(user, item) {

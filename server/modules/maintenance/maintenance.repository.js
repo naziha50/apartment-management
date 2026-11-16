@@ -245,6 +245,69 @@ async function overview(buildingId) {
 }
 
 /**
+ * FR-22 / FR-50: the maintenance report for requests submitted in a period
+ * ({ from, to } as Bangladesh days, either may be null). Hours and ratings are
+ * averages over the requests that have them; null when there are none.
+ * Resolution time runs from submission to the latest resolve (a reopened request
+ * counts the time until it was resolved again).
+ */
+async function report(buildingId, { from = null, to = null } = {}) {
+  const period = `r.building_id = $1
+    AND ($2::date IS NULL OR r.submitted_at >= $2::date::timestamp AT TIME ZONE 'Asia/Dhaka')
+    AND ($3::date IS NULL OR r.submitted_at < ($3::date + 1)::timestamp AT TIME ZONE 'Asia/Dhaka')`;
+  const params = [buildingId, from, to];
+  const hours = 'round((avg(extract(epoch FROM r.resolved_at - r.submitted_at)) / 3600)::numeric, 1)';
+  const stars = 'round(avg(rr.rating)::numeric, 2)';
+  const [byStatus, byCategory, topUnits, byStaff] = await Promise.all([
+    db.query(`SELECT r.status, count(*) AS requests FROM maintenance_requests r WHERE ${period} GROUP BY r.status`, params),
+    // One pass: a row per category plus the overall row (category IS NULL) via GROUPING SETS.
+    db.query(
+      `SELECT r.category, count(*) AS requests, count(r.resolved_at) AS resolved, ${hours} AS avg_hours_to_resolve,
+              count(rr.rating) AS ratings, ${stars} AS avg_rating
+         FROM maintenance_requests r LEFT JOIN request_ratings rr ON rr.request_id = r.id
+        WHERE ${period}
+        GROUP BY GROUPING SETS ((r.category), ())
+        ORDER BY count(*) DESC, r.category`,
+      params,
+    ),
+    // Problems inside apartments only: a common-area report says nothing about the reporter's unit.
+    db.query(
+      `SELECT u.id, u.unit_number, count(*) AS requests
+         FROM maintenance_requests r JOIN units u ON u.id = r.unit_id
+        WHERE ${period} AND r.location = 'unit'
+        GROUP BY u.id, u.unit_number ORDER BY count(*) DESC, u.unit_number LIMIT 5`,
+      params,
+    ),
+    db.query(
+      `SELECT a.id, a.full_name, count(*) AS requests, count(r.resolved_at) AS resolved, ${hours} AS avg_hours_to_resolve,
+              count(rr.rating) AS ratings, ${stars} AS avg_rating
+         FROM maintenance_requests r JOIN users a ON a.id = r.assigned_to
+         LEFT JOIN request_ratings rr ON rr.request_id = r.id
+        WHERE ${period}
+        GROUP BY a.id, a.full_name ORDER BY a.full_name`,
+      params,
+    ),
+  ]);
+  // count() and round() come back from PostgreSQL as text; the API sends numbers.
+  const num = (v) => (v == null ? null : Number(v));
+  const figures = (row) => ({
+    requests: num(row.requests),
+    resolved: num(row.resolved),
+    avgHoursToResolve: num(row.avg_hours_to_resolve),
+    ratings: num(row.ratings),
+    avgRating: num(row.avg_rating),
+  });
+  const overall = byCategory.rows.find((row) => row.category === null);
+  return {
+    byStatus: Object.fromEntries(byStatus.rows.map((row) => [row.status, num(row.requests)])),
+    overall: overall ? figures(overall) : { requests: 0, resolved: 0, avgHoursToResolve: null, ratings: 0, avgRating: null },
+    byCategory: byCategory.rows.filter((row) => row.category !== null).map((row) => ({ category: row.category, ...figures(row) })),
+    topUnits: topUnits.rows.map((row) => ({ id: Number(row.id), unitNumber: row.unit_number, requests: num(row.requests) })),
+    byStaff: byStaff.rows.map((row) => ({ id: Number(row.id), fullName: row.full_name, ...figures(row) })),
+  };
+}
+
+/**
  * BR-18: closes every request resolved more than `days` ago, records it in the
  * history as "System" and notifies the resident (FR-25), in one statement. If two server processes run it at the same
  * time, row locks make the second one skip what the first already closed.
@@ -291,7 +354,7 @@ async function insertRating(client, { buildingId, requestId, rating, comment, ra
 }
 
 module.exports = {
-  overview, autoCloseResolved, findRating, insertRating,
+  overview, report, autoCloseResolved, findRating, insertRating,
   findForUpdate, updateRequest, activeStaff, findActiveStaff, filterOptions,
   activeUnitsOf, insertRequest, insertUpdate, findById, listRequests, listUpdates,
   insertAttachments, listAttachments, findAttachment,
