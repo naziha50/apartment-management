@@ -229,6 +229,8 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .prio-low    { background: var(--muted-soft); color: #3f4542; }
 .prio-unset  { background: transparent; color: var(--ink-2); border-color: var(--line); }
 .prio-unset::before { display: none; }
+.badge-overdue { background: var(--danger); color: #fff; }
+.badge + .badge { margin-left: 0.35rem; }
 
 /* ------------------------------------------- tables → stacked cards on phones */
 .table-wrap { overflow-x: auto; }

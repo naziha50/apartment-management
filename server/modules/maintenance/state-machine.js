@@ -10,9 +10,10 @@
  *       └─► rejected
  */
 const { can } = require('../../middleware/current-user');
-const { FINAL_STATUSES, NEEDS_ACTION, RESOLVED_DAYS, RATING_DAYS } = require('./maintenance.constants');
+const { FINAL_STATUSES, NEEDS_ACTION, RESOLVED_DAYS, RATING_DAYS, TARGET_HOURS } = require('./maintenance.constants');
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
 
 const isAdmin = (user) => user?.role === 'admin';
 const isReviewer = (user) => isAdmin(user) || (user?.role === 'staff' && can(user, 'maintenance.review'));
@@ -88,4 +89,11 @@ function ratingProblem(request, user, { alreadyRated = false, now = new Date() }
 
 const canRate = (request, user, ctx) => ratingProblem(request, user, ctx) === null;
 
-module.exports = { allowedTransitions, findTransition, canAssign, canAddNote, canSetPriority, ratingProblem, canRate };
+/** BR-17: when the request must be resolved (or, without a priority, reviewed) by. */
+const deadline = (request) =>
+  new Date(new Date(request.submitted_at).getTime() + TARGET_HOURS[request.priority || 'unset'] * HOUR_MS);
+
+/** BR-17: still needs action and its deadline has passed. Same rule as OVERDUE_SQL in the repository. */
+const isOverdue = (request, now = new Date()) => NEEDS_ACTION.includes(request.status) && deadline(request) < now;
+
+module.exports = { allowedTransitions, findTransition, canAssign, canAddNote, canSetPriority, ratingProblem, canRate, deadline, isOverdue };

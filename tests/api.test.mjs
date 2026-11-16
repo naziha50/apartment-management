@@ -212,6 +212,36 @@ it('filters, search and the overview (FR-22, FR-29)', async () => {
   assert.equal((await call(U.jamal, 'GET', '/maintenance/overview')).status, 403);
 });
 
+it('overdue requests: flag, filter, oldest-first queue and overview count (BR-17, FR-18, FR-29)', async () => {
+  const make = async (title) => (await call(U.tanvir, 'POST', '/maintenance/requests', { title, category: 'other', location: 'unit', description: 'x' })).body.id;
+  const late = await make('Waiting three days');
+  const fresh = await make('Just reported');
+  const before = (await call(U.admin, 'GET', '/maintenance/overview')).body.overdue;
+  // Not reviewed within 2 days: overdue.
+  await pool.query("UPDATE maintenance_requests SET submitted_at = now() - interval '3 days' WHERE id = $1", [late]);
+
+  const one = (await call(U.admin, 'GET', `/maintenance/requests/${late}`)).body;
+  assert.equal(one.overdue, true);
+  assert.ok(new Date(one.dueAt) < new Date());
+  assert.equal((await call(U.admin, 'GET', `/maintenance/requests/${fresh}`)).body.overdue, false);
+
+  const list = (await call(U.admin, 'GET', '/maintenance/requests?overdue=1')).body;
+  assert.ok(list.items.some((r) => r.id === late));
+  assert.ok(list.items.every((r) => r.overdue), 'the filter and the flag agree');
+  assert.equal((await call(U.admin, 'GET', '/maintenance/overview')).body.overdue, before + 1);
+
+  const queue = (await call(U.admin, 'GET', '/maintenance/requests?status=submitted&sort=oldest')).body.items.map((r) => r.id);
+  assert.ok(queue.indexOf(late) < queue.indexOf(fresh), 'oldest first');
+  assert.equal((await call(U.admin, 'GET', '/maintenance/requests?sort=random')).status, 400);
+
+  // Reviewing as high priority keeps it overdue (24 hours have passed); rejecting ends it.
+  const url = `/maintenance/requests/${late}/transition`;
+  assert.equal((await call(U.admin, 'POST', url, { to: 'under_review', priority: 'high' })).body.overdue, true);
+  assert.equal((await call(U.admin, 'POST', url, { to: 'rejected', note: 'Duplicate' })).body.overdue, false);
+  assert.equal((await call(U.admin, 'GET', '/maintenance/overview')).body.overdue, before);
+  await call(U.tanvir, 'POST', `/maintenance/requests/${fresh}/transition`, { to: 'cancelled' });
+});
+
 it('photos: checked by content, served only to people who may see the request (BR-19)', async () => {
   const form = (files) => {
     const f = new FormData();

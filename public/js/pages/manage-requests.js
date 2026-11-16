@@ -9,7 +9,7 @@
  */
 import { api } from '../api.js';
 import { $, el, replace } from '../dom.js';
-import { CATEGORY_LABELS, NEEDS_ACTION, PRIORITY_LABELS, STATUS_LABELS, categoryLabel, formatDate, priorityBadge, statusBadge } from '../format.js';
+import { CATEGORY_LABELS, NEEDS_ACTION, PRIORITY_LABELS, STATUS_LABELS, categoryLabel, formatDate, overdueBadge, priorityBadge, statusBadge } from '../format.js';
 import { initLayout } from '../layout.js';
 import { animateList, emptyState, errorState, pagination } from '../ui.js';
 
@@ -20,7 +20,7 @@ const seesAll = (user) => user.role === 'admin' || user.permissions.includes('ma
 
 // "Open" = everything still being worked on, the most useful view for the office.
 const OPEN = 'submitted,under_review,in_progress,resolved';
-const FILTER_KEYS = ['status', 'priority', 'category', 'assigned', 'q'];
+const FILTER_KEYS = ['status', 'priority', 'category', 'assigned', 'overdue', 'q'];
 
 /** The filter form; its field names match the API's query parameters. */
 function filterForm(params, onChange) {
@@ -43,6 +43,8 @@ function filterForm(params, onChange) {
     select('priority', 'Priority', [['', 'Any priority'], ...Object.entries(PRIORITY_LABELS), ['unset', 'Not set yet']]),
     select('category', 'Category', [['', 'Any category'], ...Object.entries(CATEGORY_LABELS)]),
     select('assigned', 'Assigned', [['', 'Anyone'], ['none', 'Not assigned yet']]),
+    select('overdue', 'Deadline (BR-17)', [['', 'Any'], ['1', 'Overdue only']]),
+    select('sort', 'Order', [['', 'Recently updated first'], ['oldest', 'Oldest first']]),
     el(
       'div',
       { class: 'form-actions' },
@@ -74,7 +76,7 @@ function table(items) {
       ),
       // The reporter's apartment is always stored (FR-17), so check the location first.
       el('td', { 'data-label': 'Where', text: r.location === 'common_area' || !r.unit ? 'Common area' : `Apt ${r.unit.unitNumber}` }),
-      el('td', { 'data-label': 'Status' }, statusBadge(r.status)),
+      el('td', { 'data-label': 'Status' }, statusBadge(r.status), r.overdue ? overdueBadge() : null),
       el('td', { 'data-label': 'Priority' }, priorityBadge(r.priority)),
       el('td', { 'data-label': 'Assigned to', text: r.assignedTo?.fullName || '—' }),
       el('td', { 'data-label': 'Submitted', text: formatDate(r.submittedAt) }),
@@ -96,6 +98,8 @@ function table(items) {
 /** Loads the page of requests that matches the address bar. */
 async function load(all) {
   const params = new URLSearchParams(location.search);
+  const order = params.get('sort') === 'oldest' ? 'oldest first' : 'most recently updated first';
+  $('#page-hint').textContent = all ? `Every request in the building, ${order}.` : `Requests assigned to you, ${order}.`;
   replace(card, el('p', { class: 'muted empty', text: 'Loading…' }));
   try {
     const data = await api.get(`/maintenance/requests?${params}`);
@@ -155,7 +159,6 @@ try {
   } else {
     all = seesAll(user);
     $('#page-title').textContent = all ? 'Maintenance requests' : 'My tasks';
-    $('#page-hint').textContent = all ? 'Every request in the building, most recently updated first.' : 'Requests assigned to you, most recently updated first.';
     // Back / forward: show the filters and results that belong to that address.
     window.addEventListener('popstate', () => {
       showFilters();

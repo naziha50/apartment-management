@@ -29,4 +29,9 @@ const RATING_DAYS = 7;
 // FR-18
 const PRIORITIES = Object.freeze(['low', 'medium', 'high']);
 
-module.exports = { CATEGORIES, LOCATIONS, STATUSES, FINAL_STATUSES, NEEDS_ACTION, RESOLVED_DAYS, RATING_DAYS, PRIORITIES };
+// BR-17: hours from submission until a request still needing action is overdue.
+// Without a priority it must at least be reviewed within 2 days.
+// shortcut: fixed values; the SRS lets the admin change them in settings, which come with the settings module.
+const TARGET_HOURS = Object.freeze({ high: 24, medium: 3 * 24, low: 7 * 24, unset: 2 * 24 });
+
+module.exports = { CATEGORIES, LOCATIONS, STATUSES, FINAL_STATUSES, NEEDS_ACTION, RESOLVED_DAYS, RATING_DAYS, PRIORITIES, TARGET_HOURS };

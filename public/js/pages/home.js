@@ -11,7 +11,8 @@ import { animateIn, countUp, errorState } from '../ui.js';
 
 // [count from /maintenance/overview, label, filter for /manage/requests.html, highlight when > 0]
 const TILES = [
-  ['submitted', 'Waiting for review', '?status=submitted', false],
+  ['overdue', 'Overdue', '?overdue=1&sort=oldest', true],
+  ['submitted', 'Waiting for review', '?status=submitted&sort=oldest', false],
   ['unassigned', 'Not assigned yet', `?status=${NEEDS_ACTION}&assigned=none`, false],
   ['high_open', 'High priority, still open', `?status=${NEEDS_ACTION}&priority=high`, true],
   ['in_progress', 'In progress', '?status=in_progress', false],

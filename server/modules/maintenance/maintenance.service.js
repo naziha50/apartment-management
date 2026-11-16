@@ -39,6 +39,9 @@ function toDto(r) {
     autoCloseAt: r.status === 'resolved' && r.resolved_at
       ? new Date(new Date(r.resolved_at).getTime() + RESOLVED_DAYS * 24 * 60 * 60 * 1000).toISOString()
       : null,
+    // BR-17: the target time and whether it has passed (only while the request still needs action).
+    dueAt: sm.deadline(r).toISOString(),
+    overdue: sm.isOverdue(r),
   };
 }
 
@@ -157,6 +160,8 @@ function parseFilters(query = {}) {
     category: v.oneOf('category', CATEGORIES, { required: false, label: 'Category' }),
     priority: v.oneOf('priority', [...PRIORITIES, 'unset'], { required: false, label: 'Priority' }),
     unassigned: v.oneOf('assigned', ['none'], { required: false, label: 'Assigned-to filter' }) === 'none', // ?assigned=none (FR-29 tile)
+    overdue: v.oneOf('overdue', ['1'], { required: false, label: 'Overdue filter' }) === '1', // ?overdue=1 (BR-17)
+    sort: v.oneOf('sort', ['oldest'], { required: false, label: 'Sort order' }), // ?sort=oldest (FR-18 review queue)
     q: typeof query.q === 'string' ? query.q.trim().slice(0, 100) || null : null,
   };
   v.throwIfInvalid('Some filters are not valid.');

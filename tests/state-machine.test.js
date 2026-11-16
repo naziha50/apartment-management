@@ -2,7 +2,7 @@
 /** Unit tests for the request status rules (BR-16, Appendix A). Run with `npm test`. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { allowedTransitions, findTransition, canAssign, canAddNote, canSetPriority, ratingProblem, canRate } = require('../server/modules/maintenance/state-machine');
+const { allowedTransitions, findTransition, canAssign, canAddNote, canSetPriority, ratingProblem, canRate, deadline, isOverdue } = require('../server/modules/maintenance/state-machine');
 
 const admin = { id: 1, role: 'admin', permissions: [] };
 const reviewer = { id: 2, role: 'staff', permissions: ['maintenance.review'] };
@@ -106,5 +106,22 @@ test('final statuses allow no moves', () => {
     for (const u of [admin, reviewer, caretaker, resident]) {
       assert.deepEqual(moves(req({ status, assigned_to: 3 }), u), [], `${status} / ${u.role}`);
     }
+  }
+});
+
+test('overdue: priority sets the deadline, only while the request still needs action (BR-17)', () => {
+  const submitted_at = '2026-11-10T00:00:00Z';
+  const at = (iso) => new Date(iso);
+  assert.equal(deadline(req({ submitted_at, priority: 'high' })).toISOString(), '2026-11-11T00:00:00.000Z');
+  assert.equal(deadline(req({ submitted_at, priority: 'medium' })).toISOString(), '2026-11-13T00:00:00.000Z');
+  assert.equal(deadline(req({ submitted_at, priority: 'low' })).toISOString(), '2026-11-17T00:00:00.000Z');
+  assert.equal(deadline(req({ submitted_at, priority: null })).toISOString(), '2026-11-12T00:00:00.000Z', 'not reviewed: 2 days');
+
+  const high = req({ submitted_at, priority: 'high', status: 'in_progress' });
+  assert.equal(isOverdue(high, at('2026-11-10T23:59:00Z')), false);
+  assert.equal(isOverdue(high, at('2026-11-11T00:01:00Z')), true);
+  assert.equal(isOverdue(req({ submitted_at, status: 'submitted' }), at('2026-11-12T00:01:00Z')), true);
+  for (const status of ['resolved', 'closed', 'rejected', 'cancelled']) {
+    assert.equal(isOverdue(req({ submitted_at, priority: 'high', status }), at('2026-12-01T00:00:00Z')), false, status);
   }
 });

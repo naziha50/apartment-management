@@ -42,6 +42,9 @@ export const categoryLabel = (c) => CATEGORY_LABELS[c] || c;
 /** Status as a coloured badge; the text carries the meaning, not the colour (UI-06). */
 export const statusBadge = (s) => el('span', { class: `badge status-${s}`, text: STATUS_LABELS[s] || s });
 
+/** BR-17: shown next to the status when a request has passed its target time. */
+export const overdueBadge = () => el('span', { class: 'badge badge-overdue', text: 'Overdue' });
+
 export const priorityBadge = (p) =>
   el('span', { class: `badge prio-${p || 'unset'}`, text: p ? PRIORITY_LABELS[p] : 'Not set yet' });
 

@@ -6,7 +6,14 @@
  * inside one transaction.
  */
 const db = require('../../db/pool');
-const { NEEDS_ACTION } = require('./maintenance.constants');
+const { NEEDS_ACTION, TARGET_HOURS } = require('./maintenance.constants');
+
+// BR-17 in SQL, for a request aliased `r`; same rule as isOverdue() in state-machine.js.
+// The numbers are our own constants (never user input), so they are written into the SQL.
+const OVERDUE_SQL = `(r.status IN (${NEEDS_ACTION.map((s) => `'${s}'`).join(', ')})
+  AND r.submitted_at + make_interval(hours => CASE r.priority
+        WHEN 'high' THEN ${Number(TARGET_HOURS.high)} WHEN 'medium' THEN ${Number(TARGET_HOURS.medium)}
+        WHEN 'low' THEN ${Number(TARGET_HOURS.low)} ELSE ${Number(TARGET_HOURS.unset)} END) < now())`;
 
 /** FR-17: units the resident lives in today (start date passed, no end date or end date not passed). */
 async function activeUnitsOf(residentId) {
@@ -61,7 +68,8 @@ async function findById(id) {
 /**
  * One page of requests in a building, newest activity first (FR-21, FR-22).
  * `scope` is what the user may see: { submittedBy } for residents, { assignedTo } for staff.
- * `filters` come from the list page: { statuses, category, priority, q }.
+ * `filters` come from the list page: { statuses, category, priority, unassigned, overdue, q, sort }.
+ * sort 'oldest' puts the longest-waiting first (FR-18 review queue); otherwise newest activity first.
  * Returns { rows, total } where total counts every match, not just this page.
  */
 async function listRequests(buildingId, scope = {}, filters = {}, { limit = 20, offset = 0 } = {}) {
@@ -77,6 +85,7 @@ async function listRequests(buildingId, scope = {}, filters = {}, { limit = 20, 
   if (filters.statuses?.length) add('r.status = ANY(?::request_status[])', filters.statuses);
   if (filters.category) add('r.category = ?', filters.category);
   if (filters.unassigned) where.push('r.assigned_to IS NULL');
+  if (filters.overdue) where.push(OVERDUE_SQL);
   if (filters.priority === 'unset') where.push('r.priority IS NULL');
   else if (filters.priority) add('r.priority = ?::request_priority', filters.priority);
   // % and _ typed by the user are matched literally.
@@ -95,7 +104,7 @@ async function listRequests(buildingId, scope = {}, filters = {}, { limit = 20, 
          LEFT JOIN users s ON s.id = r.submitted_by
          LEFT JOIN users a ON a.id = r.assigned_to
         WHERE ${whereSql}
-        ORDER BY r.updated_at DESC, r.id DESC
+        ORDER BY ${filters.sort === 'oldest' ? 'r.submitted_at, r.id' : 'r.updated_at DESC, r.id DESC'}
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, limit, offset],
     ),
@@ -205,8 +214,9 @@ async function overview(buildingId) {
        count(*) FILTER (WHERE status = 'resolved')     AS resolved,
        count(*) FILTER (WHERE status = 'closed')       AS closed,
        count(*) FILTER (WHERE status = ANY($2::request_status[]) AND assigned_to IS NULL) AS unassigned,
-       count(*) FILTER (WHERE status = ANY($2::request_status[]) AND priority = 'high') AS high_open
-     FROM maintenance_requests
+       count(*) FILTER (WHERE status = ANY($2::request_status[]) AND priority = 'high') AS high_open,
+       count(*) FILTER (WHERE ${OVERDUE_SQL}) AS overdue
+     FROM maintenance_requests r
      WHERE building_id = $1`,
     [buildingId, NEEDS_ACTION],
   );
