@@ -82,4 +82,4 @@ function filePath(storedName) {
   return path.join(config.uploads.dir, storedName);
 }
 
-module.exports = { photosField, sniffImageType, inspectFiles, saveFiles, removeFiles, filePath };
+module.exports = { photosField, inspectFiles, saveFiles, removeFiles, filePath };

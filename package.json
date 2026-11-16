@@ -5,7 +5,7 @@
   "description": "Apartment Management — Maintenance module (CSE327). HTML/CSS frontend, Node.js REST API, PostgreSQL.",
   "main": "server/server.js",
   "engines": {
-    "node": ">=20"
+    "node": ">=20.11"
   },
   "scripts": {
     "start": "node server/server.js",

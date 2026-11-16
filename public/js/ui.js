@@ -7,7 +7,7 @@
  */
 import { el, $ } from './dom.js';
 
-export const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** Fades and slides a node in. */
 export function animateIn(node, { y = 8, delay = 0 } = {}) {
@@ -53,7 +53,7 @@ export function toast(message, kind = 'info') {
   const node = el('div', { class: `toast toast--${kind}`, text: message });
   region.append(node);
   animateIn(node, { y: 12 });
-  setTimeout(() => node.remove(), kind === 'error' ? 7000 : 4000);
+  setTimeout(() => node.remove(), 4000);
 }
 
 /** "Nothing here yet" box with an optional action button. */

@@ -69,7 +69,7 @@ async function migrate({ databaseUrl, reset = false, log = console.log } = {}) {
   }
 }
 
-module.exports = { migrate, listMigrationFiles };
+module.exports = { migrate };
 
 if (require.main === module) {
   migrate({ reset: process.argv.includes('--reset') })

@@ -23,7 +23,7 @@ export function setViewingAs(userId) {
   }
 }
 
-export class ApiError extends Error {
+class ApiError extends Error {
   constructor(status, body) {
     const error = body?.error || {};
     super(error.message || 'Something went wrong. Please try again.');

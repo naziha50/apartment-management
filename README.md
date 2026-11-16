@@ -234,20 +234,29 @@ server/
                 security.js (security headers)
   modules/      one folder per feature
     users/        lists users and answers /me
-    maintenance/  routes (HTTP) → service (rules) → repository (SQL), plus constants
+    maintenance/  routes (HTTP) → service (checks + transactions) → repository (SQL)
+                  state-machine.js  who may change status, assign, add notes, change priority
+                  uploads.js        photo upload checks and storage
+                  maintenance.constants.js  categories, statuses, priorities
 public/
-  index.html    start page
-  css/main.css  the one stylesheet
-  js/api.js     fetch wrapper that sends X-User-Id with every call
-  js/dom.js     safe element helpers (el, replace, icon)
-  js/layout.js  shared page frame: top bar, "Viewing as", navigation
-  js/ui.js      animations, toasts, empty and error states
-  js/viewing-as.js  the "Viewing as" menu
-  js/pages/     one script per page
+  index.html               start page (+ maintenance overview for the office)
+  request.html             one request: details, photos, history, actions
+  resident/new-request.html, resident/requests.html   report a problem, my requests
+  manage/requests.html     requests list with filters for the admin and staff
+  css/main.css             the one stylesheet
+  js/api.js                fetch wrapper that sends X-User-Id with every call
+  js/dom.js                safe element helpers (el, replace, icon)
+  js/format.js             labels, badges and Bangladesh-time dates
+  js/layout.js             shared page frame: top bar, "Viewing as", navigation
+  js/ui.js                 animations, toasts, form errors, paging, empty and error states
+  js/viewing-as.js         the "Viewing as" menu
+  js/pages/                one script per page
 db/
   create-db.js  creates the database (npm run db:create)
   migrate.js    applies migrations (npm run db:migrate / db:reset)
   migrations/   numbered .sql files that build the schema step by step
   seed.js       demo building, units and users (npm run db:seed)
+tests/          rule tests, upload tests and API tests (npm test)
+storage/        uploaded photos (git-ignored; set by UPLOAD_DIR)
 .env.example    template for your local .env (never commit .env)
 ```

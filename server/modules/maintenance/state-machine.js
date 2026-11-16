@@ -76,4 +76,4 @@ function canSetPriority(request, user) {
   return isReviewer(user) && ['under_review', 'in_progress'].includes(request.status);
 }
 
-module.exports = { REOPEN_DAYS, TRANSITIONS, allowedTransitions, findTransition, canAssign, canAddNote, canSetPriority };
+module.exports = { allowedTransitions, findTransition, canAssign, canAddNote, canSetPriority };

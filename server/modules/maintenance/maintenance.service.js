@@ -368,5 +368,5 @@ async function setPriority(user, rawId, body) {
 
 module.exports = {
   createRequest, myUnits, listRequests, getRequest, getAttachment,
-  transition, staffList, assign, addNote, setPriority, overview, toDto,
+  transition, staffList, assign, addNote, setPriority, overview,
 };
