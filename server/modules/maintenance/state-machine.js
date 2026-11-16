@@ -89,9 +89,15 @@ function ratingProblem(request, user, { alreadyRated = false, now = new Date() }
 
 const canRate = (request, user, ctx) => ratingProblem(request, user, ctx) === null;
 
-/** BR-17: when the request must be resolved (or, without a priority, reviewed) by. */
+/**
+ * BR-17: when the request must be resolved (or, without a priority, reviewed) by.
+ * BR-25: a request from a scheduled task is due by the end of the task's due day
+ * (a 'YYYY-MM-DD' Bangladesh day, UTC+6), not by the priority target.
+ */
 const deadline = (request) =>
-  new Date(new Date(request.submitted_at).getTime() + TARGET_HOURS[request.priority || 'unset'] * HOUR_MS);
+  request.due_date
+    ? new Date(Date.parse(`${request.due_date}T00:00:00+06:00`) + DAY_MS)
+    : new Date(new Date(request.submitted_at).getTime() + TARGET_HOURS[request.priority || 'unset'] * HOUR_MS);
 
 /** BR-17: still needs action and its deadline has passed. Same rule as OVERDUE_SQL in the repository. */
 const isOverdue = (request, now = new Date()) => NEEDS_ACTION.includes(request.status) && deadline(request) < now;

@@ -403,6 +403,70 @@ it('scheduled tasks: create, check, list, edit, pause and resume (FR-49, BR-25)'
   assert.equal((await call(U.admin, 'GET', `${url}/abc`)).status, 404);
 });
 
+it('scheduled tasks become requests 7 days before they are due, exactly once (BR-25, FR-49)', async () => {
+  const { createDueRequests } = require('../server/modules/maintenance/scheduled-tasks.service');
+  const day = (offset) => new Date(Date.now() + offset * 86400000).toLocaleDateString('sv-SE', { timeZone: 'Asia/Dhaka' });
+  const url = '/maintenance/scheduled-tasks';
+  const make = async (body) => (await call(U.admin, 'POST', url, { category: 'lift', intervalMonths: 1, ...body })).body;
+  const task = async (id) => (await call(U.admin, 'GET', `${url}/${id}`)).body;
+  const requestFor = async (title) => {
+    const item = (await call(U.admin, 'GET', `/maintenance/requests?q=${encodeURIComponent(title)}`)).body.items[0];
+    return item && (await call(U.admin, 'GET', `/maintenance/requests/${item.id}`)).body;
+  };
+  const messages = async (user) => (await call(user, 'GET', '/notifications')).body.items.map((n) => n.message);
+
+  const soon = await make({ title: 'Generator check', category: 'generator', nextDueDate: day(5), defaultAssigneeId: U.jamal });
+  const edge = await make({ title: 'Fire extinguisher check', category: 'security', nextDueDate: day(7) }); // exactly 7 days: due now
+  const later = await make({ title: 'Roof drain clearing', nextDueDate: day(8) }); // its request comes tomorrow
+  const paused = await make({ title: 'Paused job', nextDueDate: day(2) });
+  await call(U.admin, 'PATCH', `${url}/${paused.id}`, { paused: true });
+
+  assert.equal(await createDueRequests(), 2);
+  assert.equal(await createDueRequests(), 0, 'running again creates nothing twice');
+
+  const r = await requestFor('Generator check');
+  assert.equal(r.status, 'under_review');
+  assert.equal(r.priority, 'medium');
+  assert.equal(r.location, 'common_area');
+  assert.equal(r.submittedBy, null, 'submitted by "System"');
+  assert.equal(r.assignedTo.id, U.jamal);
+  assert.deepEqual(r.scheduledTask, { id: soon.id, dueDate: day(5) });
+  assert.equal(r.dueAt, new Date(Date.parse(`${day(5)}T00:00:00+06:00`) + 86400000).toISOString(), 'deadline: end of the due day');
+  assert.equal(r.overdue, false);
+  assert.match(r.updates[0].note, /^Created from the scheduled task "Generator check", due /);
+  assert.equal(r.updates[0].author, 'System');
+  assert.equal(r.updates[1].kind, 'assignment');
+  assert.ok((await messages(U.jamal)).some((m) => m.includes(`request ${r.requestNumber} (Generator check) is assigned to you`)));
+
+  const unassigned = await requestFor('Fire extinguisher check');
+  assert.equal(unassigned.assignedTo, null);
+  assert.ok((await messages(U.admin)).some((m) => m.includes(`${unassigned.requestNumber} (Fire extinguisher check) needs someone assigned`)), 'the office is told');
+
+  const expected = (await pool.query("SELECT to_char($1::date + interval '1 month', 'YYYY-MM-DD') AS d", [day(5)])).rows[0].d;
+  assert.equal((await task(soon.id)).nextDueDate, expected, 'moved forward by the interval');
+  assert.equal((await task(edge.id)).nextDueDate > day(30), true);
+  assert.equal((await task(later.id)).nextDueDate, day(8), 'not due yet: untouched');
+  assert.equal((await task(paused.id)).nextDueDate, day(2), 'paused: untouched');
+  assert.equal(await requestFor('Paused job'), undefined);
+
+  // Missed while the server was off: one request for the missed date, then the next future date.
+  await pool.query('UPDATE scheduled_tasks SET next_due_date = $2 WHERE id = $1', [later.id, day(-65)]);
+  assert.equal(await createDueRequests(), 1, 'one request, not one per missed month');
+  assert.ok((await task(later.id)).createsRequestOn > day(0), 'next request is in the future');
+  assert.equal((await requestFor('Roof drain clearing')).overdue, true, 'the missed job is overdue');
+
+  // Two server processes at the same moment still create it once.
+  const twin = await make({ title: 'Twin run', nextDueDate: day(3) });
+  const counts = await Promise.all([createDueRequests(), createDueRequests()]);
+  assert.equal(counts[0] + counts[1], 1);
+  const twinNext = (await pool.query("SELECT to_char($1::date + interval '1 month', 'YYYY-MM-DD') AS d", [day(3)])).rows[0].d;
+  assert.equal((await task(twin.id)).nextDueDate, twinNext, 'moved forward once, not twice');
+
+  for (const title of ['Generator check', 'Fire extinguisher check', 'Roof drain clearing', 'Twin run']) {
+    await call(U.admin, 'POST', `/maintenance/requests/${(await requestFor(title)).id}/transition`, { to: 'rejected', note: 'Test data' });
+  }
+});
+
 it('photos: checked by content, served only to people who may see the request (BR-19)', async () => {
   const form = (files) => {
     const f = new FormData();

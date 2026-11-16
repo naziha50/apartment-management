@@ -107,6 +107,7 @@ New modules (billing, announcements, …) will follow the same pattern next to `
 | **FR-50** Rate a request | 1–5 stars and an optional comment, once, within 7 days after closing. The admin and assignee see it; the report shows the average rating overall, per category and per staff member |
 | **BR-16** Statuses | Seven statuses and the allowed moves of Appendix A, enforced on the server |
 | **BR-17** Resolution targets | High 24 hours, Medium 3 days, Low 7 days from submission; without a priority it must be reviewed within 2 days. A request still needing action past its target is *overdue*: shown on the lists, the request page ("Resolve by" / "Review by") and the overview, and filterable. The targets are fixed in `maintenance.constants.js` until a settings screen exists |
+| **BR-25** Scheduled tasks | 7 days before a task's due date the server creates its request: common area, Medium, *Under review*, submitted by "System", assigned to the task's default assignee (if still active staff). Its deadline is the end of the due day, not the BR-17 target. The task then moves forward by its interval. Paused tasks create nothing. The assignee is notified, or the office when nobody is assigned |
 | **BR-18** Auto-close | A *Resolved* request closes by itself 7 days later unless reopened |
 | **BR-19** Photos | JPG, PNG or WEBP, 5 MB each, up to 3; checked by file *content*, saved under random names |
 | **BR-26** Ratings | Once only, never changed (one rating per request is enforced by the database) |
@@ -128,7 +129,7 @@ New modules (billing, announcements, …) will follow the same pattern next to `
 
 ### Not built yet in the maintenance module
 
-- **FR-49 / BR-25 Scheduled maintenance tasks:** tasks can be created, edited, paused and listed through the API (Step 29); turning them into requests and the page come in Sprint 6.
+- **FR-49 / BR-25 Scheduled maintenance tasks:** tasks can be managed through the API and turn into requests by themselves (Steps 29–30); the closing rule for these requests and the page come in Steps 31–32.
 - Real login (FR-01, FR-02) — see the next sections.
 
 ---
@@ -299,6 +300,12 @@ submitted ──► under_review ──► in_progress ──► resolved ──
 The automatic close runs when the server starts and then every hour. It is one database
 statement, so several server processes running it at once still close each request only once.
 
+Scheduled tasks (BR-25) are checked at the same times. Each due task is handled in its own
+transaction with the task row locked (`FOR UPDATE SKIP LOCKED`), and the database allows one
+request per task per due date, so several server processes never create a request twice or move
+a due date twice. A task missed while the server was off creates one request for the missed date
+(already overdue) and then jumps to its next future due date, rather than one request per missed period.
+
 ### Who sees what
 
 - **Residents:** only their own requests, never internal notes or photos on internal notes.
@@ -335,7 +342,7 @@ All endpoints are under `/api/v1` and need a "Viewing as" user (`X-User-Id` head
 |---|---|---|
 | `POST /requests` | Residents | Submit a request (FR-16, FR-17). Body: `title` (3–120 chars), `description`, `category`, `location` (`unit` or `common_area`), and `unitId` only if the resident has more than one unit. JSON, or `multipart/form-data` with up to 3 `photos`. Returns 201 with the new request |
 | `GET /requests` | Everyone | Requests you may see, newest activity first, 20 per page. Filters: `status` (comma-separated), `category`, `priority` (`high`, `medium`, `low`, `unset`), `q` (title or number), `assigned=none` or `assignedTo` (a staff id), `unitId`, `from` / `to` (`YYYY-MM-DD`, the Bangladesh day it was submitted; `to` includes the whole day), `overdue=1` (BR-17), `page`. `sort=oldest` lists the longest-waiting first (FR-18). Returns `{ items, page, pageSize, total }` |
-| `GET /requests/:id` | Everyone | One request (like every request in the API: with `dueAt` and `overdue`, BR-17) with `updates` (history), `attachments`, `rating`, `autoCloseAt` and `allowed` (what you may do now: `transitions`, `assign`, `addNote`, `setPriority`, `rate`). Requests you may not see answer 404 |
+| `GET /requests/:id` | Everyone | One request (like every request in the API: with `dueAt` and `overdue`, BR-17, and `scheduledTask` `{ id, dueDate }` when a scheduled task created it, BR-25) with `updates` (history), `attachments`, `rating`, `autoCloseAt` and `allowed` (what you may do now: `transitions`, `assign`, `addNote`, `setPriority`, `rate`). Requests you may not see answer 404 |
 | `GET /requests/:id/attachments/:attId` | Everyone | One photo, with the same access rule as its request |
 | `POST /requests/:id/transition` | Depends on the move | Change the status. Body: `to`, plus `priority` when reviewing and `note` when rejecting, resolving or reopening. A move not allowed now answers 409 `TRANSITION_NOT_ALLOWED` |
 | `POST /requests/:id/assign` | Admin, staff with `maintenance.assign` | Assign or reassign. Body: `staffId`. Only while submitted, under review or in progress (else 409 `NOT_ASSIGNABLE`) |
@@ -406,6 +413,7 @@ next numbered file; never edit one that is already committed. See
 | `007_create_notifications.sql` | `notifications` | In-app notifications, one row per person (FR-25) |
 | `008_link_photos_to_notes.sql` | `request_attachments.update_id` | Which note a photo belongs to; empty for photos sent with the request |
 | `009_create_scheduled_tasks.sql` | `scheduled_tasks` | Recurring jobs: title, category, repeat interval (1–24 months), next due date, optional default assignee, paused (FR-49, BR-25) |
+| `010_link_requests_to_scheduled_tasks.sql` | `maintenance_requests.scheduled_task_id`, `due_date` | Which task and due date a request was created for; unique together, so never twice (BR-25) |
 
 The `users`, `units` and `occupancies` tables already follow the SRS data model, but there are
 no screens to manage them yet: they are filled by `npm run db:seed`.
@@ -423,7 +431,7 @@ npm test
 | `tests/state-machine.test.js` | The rules on their own: who may change the status, assign, add notes, change the priority or rate; deadlines and overdue (BR-17) |
 | `tests/csv.test.js` | The CSV helper: Bangla and quotes survive, formulas stay text |
 | `tests/uploads.test.js` | Photo checks: real images pass, renamed files are refused |
-| `tests/api.test.mjs` | The real API over HTTP: submitting, who sees what, a request's whole life, internal notes and their photos, filters (including unit, staff and Bangladesh-day date range), the overview, ratings, auto-close, notifications, uploads, overdue requests, the report, the CSV export and scheduled tasks |
+| `tests/api.test.mjs` | The real API over HTTP: submitting, who sees what, a request's whole life, internal notes and their photos, filters (including unit, staff and Bangladesh-day date range), the overview, ratings, auto-close, notifications, uploads, overdue requests, the report, the CSV export, scheduled tasks and the requests they create (including two server processes at once) |
 
 The API tests use a **separate test database** (`DATABASE_URL` with `_test` added, or
 `TEST_DATABASE_URL`). It is created if needed and **wiped and re-seeded on every run**, so your
@@ -431,7 +439,7 @@ development data is never touched; the tests refuse to run against the developme
 Test photos go to a temporary folder that is deleted afterwards. If PostgreSQL is not running,
 the API tests are skipped with the reason shown and the other tests still run.
 
-Current result: **31 tests, all passing.**
+Current result: **33 tests, all passing.**
 
 ---
 
@@ -455,7 +463,7 @@ Current result: **31 tests, all passing.**
 ```
 server/
   app.js            builds the Express app and mounts the routes
-  server.js         starts the HTTP server, the hourly auto-close, and clean shutdown
+  server.js         starts the HTTP server, the hourly jobs (auto-close, scheduled tasks) and clean shutdown
   config.js         all settings, read from .env
   db/pool.js        shared PostgreSQL pool + transaction helper
   lib/errors.js     API errors with plain-language messages
@@ -541,7 +549,7 @@ storage/         uploaded photos (git-ignored)
 
 **Sprint 6 – Scheduled maintenance** 🚧 (FR-49, BR-25; the last part of the maintenance module)
 - [x] Step 29: scheduled tasks table and API: create, edit, pause, resume, list (who: admin, staff with `maintenance.assign`)
-- [ ] Step 30: 7 days before a task is due the server creates the request (common area, Medium, Under review, by "System", assigned to the default assignee), with the task's due date as its deadline; the task moves forward by its interval; safe with several server processes
+- [x] Step 30: 7 days before a task is due the server creates the request (common area, Medium, Under review, by "System", assigned to the default assignee), with the task's due date as its deadline; the task moves forward by its interval; safe with several server processes
 - [ ] Step 31: rules for these requests: the admin closes them (no resident to confirm, Appendix A), no rating
 - [ ] Step 32: "Scheduled tasks" page: list, form, pause / resume, due in the next 90 days
 

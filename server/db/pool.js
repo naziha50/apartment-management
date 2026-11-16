@@ -6,8 +6,13 @@
  *   strings from user input (NFR-04).
  * - withTransaction(): runs several queries all-or-nothing (NFR-14).
  */
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
 const config = require('../config');
+
+// DATE columns are calendar days (e.g. a task's due date, §2.6). Keep them as 'YYYY-MM-DD'
+// text: by default pg makes a JavaScript Date at the server's local midnight, which can
+// move the day when the server's time zone differs. 1082 is PostgreSQL's DATE type.
+types.setTypeParser(1082, (value) => value);
 
 const pool = new Pool({
   connectionString: config.databaseUrl,

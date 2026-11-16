@@ -11,9 +11,12 @@ const { NEEDS_ACTION, TARGET_HOURS } = require('./maintenance.constants');
 // BR-17 in SQL, for a request aliased `r`; same rule as isOverdue() in state-machine.js.
 // The numbers are our own constants (never user input), so they are written into the SQL.
 const OVERDUE_SQL = `(r.status IN (${NEEDS_ACTION.map((s) => `'${s}'`).join(', ')})
-  AND r.submitted_at + make_interval(hours => CASE r.priority
+  AND CASE WHEN r.due_date IS NOT NULL
+        THEN (r.due_date + 1)::timestamp AT TIME ZONE 'Asia/Dhaka'   -- BR-25: end of the task's due day
+        ELSE r.submitted_at + make_interval(hours => CASE r.priority
         WHEN 'high' THEN ${Number(TARGET_HOURS.high)} WHEN 'medium' THEN ${Number(TARGET_HOURS.medium)}
-        WHEN 'low' THEN ${Number(TARGET_HOURS.low)} ELSE ${Number(TARGET_HOURS.unset)} END) < now())`;
+        WHEN 'low' THEN ${Number(TARGET_HOURS.low)} ELSE ${Number(TARGET_HOURS.unset)} END)
+      END < now())`;
 
 /** FR-17: units the resident lives in today (start date passed, no end date or end date not passed). */
 async function activeUnitsOf(residentId) {
@@ -130,6 +133,23 @@ async function listUpdates(requestId, { includeInternal }) {
     [requestId, includeInternal],
   );
   return rows;
+}
+
+/**
+ * BR-25: a request for a scheduled task's due date: common area, Medium, already Under review,
+ * submitted by "System" (no submitter). Returns null when this task already has a request for
+ * that due date (the unique index from migration 010), so it is never created twice.
+ */
+async function insertScheduledRequest(client, t) {
+  const { rows } = await client.query(
+    `INSERT INTO maintenance_requests
+       (building_id, title, description, category, location, submitted_by, status, priority, assigned_to, reviewed_at, scheduled_task_id, due_date)
+     VALUES ($1, $2, $3, $4, 'common_area', NULL, 'under_review', 'medium', $5, now(), $6, $7)
+     ON CONFLICT (scheduled_task_id, due_date) WHERE scheduled_task_id IS NOT NULL DO NOTHING
+     RETURNING id, request_number`,
+    [t.buildingId, t.title, t.description, t.category, t.assignedTo, t.taskId, t.dueDate],
+  );
+  return rows[0] ? { id: Number(rows[0].id), requestNumber: rows[0].request_number } : null;
 }
 
 /** BR-19: stores the details of photos already saved to disk. */
@@ -356,6 +376,6 @@ async function insertRating(client, { buildingId, requestId, rating, comment, ra
 module.exports = {
   overview, report, autoCloseResolved, findRating, insertRating,
   findForUpdate, updateRequest, activeStaff, findActiveStaff, filterOptions,
-  activeUnitsOf, insertRequest, insertUpdate, findById, listRequests, listUpdates,
+  activeUnitsOf, insertRequest, insertScheduledRequest, insertUpdate, findById, listRequests, listUpdates,
   insertAttachments, listAttachments, findAttachment,
 };

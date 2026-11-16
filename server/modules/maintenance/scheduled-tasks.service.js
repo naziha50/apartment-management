@@ -2,14 +2,15 @@
 /**
  * Scheduled maintenance tasks (FR-49, BR-25): recurring jobs such as monthly lift
  * servicing, so routine upkeep is never forgotten. Managed by the admin and staff with
- * maintenance.assign (SRS Appendix B). Turning a due task into a request is Step 30.
+ * maintenance.assign (SRS Appendix B). createDueRequests() turns due tasks into requests.
  *
  * Dates are Bangladesh calendar days (§2.6) as 'YYYY-MM-DD' text, never Date objects,
  * so they cannot shift by a day between time zones.
  */
 const db = require('../../db/pool');
 const repo = require('./scheduled-tasks.repository');
-const { findActiveStaff } = require('./maintenance.repository');
+const maintenanceRepo = require('./maintenance.repository');
+const notifications = require('../notifications/notifications.service');
 const { CATEGORIES, SCHEDULE_LEAD_DAYS, MAX_INTERVAL_MONTHS } = require('./maintenance.constants');
 const { Validator } = require('../../lib/validate');
 const { forbidden, notFound } = require('../../lib/errors');
@@ -71,7 +72,7 @@ async function readFields(user, body = {}, { partial }) {
   // Optional on both; empty or null means "nobody by default".
   if (body.defaultAssigneeId !== undefined) {
     const id = v.id('defaultAssigneeId', { required: false, label: 'Default assignee' });
-    if (id && !(await findActiveStaff(db, user.buildingId, id))) v.fail('defaultAssigneeId', 'Please choose an active staff member.');
+    if (id && !(await maintenanceRepo.findActiveStaff(db, user.buildingId, id))) v.fail('defaultAssigneeId', 'Please choose an active staff member.');
     out.default_assignee = id;
   }
   if (partial && body.paused !== undefined) {
@@ -129,4 +130,60 @@ async function update(user, rawId, body) {
   return get(user, id);
 }
 
-module.exports = { list, get, create, update, todayInDhaka, addDays };
+const DAY_TEXT = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'UTC' });
+const dayText = (ymd) => DAY_TEXT.format(new Date(`${ymd}T00:00:00Z`)); // '2026-12-16' → '16 Dec 2026'
+
+/**
+ * BR-25: creates the request for one due task, if any is due, in one transaction:
+ * the request (common area, Medium, Under review, by "System", assigned to the default
+ * assignee if they are still active staff), its history, the move to the next due date
+ * and the notification (FR-25, FR-49). Returns null when no task is due, otherwise whether a
+ * request was created (false: it already existed, so only the due date moved on).
+ */
+async function createNextDueRequest() {
+  return db.withTransaction(async (client) => {
+    const task = await repo.lockNextDue(client, SCHEDULE_LEAD_DAYS);
+    if (!task) return null;
+    const assignee = task.default_assignee && (await maintenanceRepo.findActiveStaff(client, task.building_id, task.default_assignee));
+    const due = dayText(task.next_due_date);
+    const request = await maintenanceRepo.insertScheduledRequest(client, {
+      buildingId: task.building_id,
+      title: task.title,
+      description: task.description || `Scheduled maintenance: ${task.title}.`,
+      category: task.category,
+      assignedTo: assignee ? Number(assignee.id) : null,
+      taskId: Number(task.id),
+      dueDate: task.next_due_date,
+    });
+    if (request) {
+      await maintenanceRepo.insertUpdate(client, {
+        requestId: request.id, authorId: null, kind: 'status_change', toStatus: 'under_review',
+        note: `Created from the scheduled task "${task.title}", due ${due}.`,
+      });
+      if (assignee) {
+        await maintenanceRepo.insertUpdate(client, { requestId: request.id, authorId: null, kind: 'assignment', note: `Assigned to ${assignee.full_name}.` });
+        await notifications.notify(client, {
+          buildingId: task.building_id, requestId: request.id, to: [assignee.id],
+          message: `Scheduled job due ${due}: request ${request.requestNumber} (${task.title}) is assigned to you.`,
+        });
+      } else {
+        // Nobody to do it yet: the office has to assign someone.
+        await notifications.notifyOffice(client, {
+          buildingId: task.building_id, requestId: request.id,
+          message: `Scheduled job due ${due}: request ${request.requestNumber} (${task.title}) needs someone assigned.`,
+        });
+      }
+    }
+    await repo.advance(client, task.id, SCHEDULE_LEAD_DAYS);
+    return Boolean(request);
+  });
+}
+
+/** BR-25: handles every due task, one transaction each. Returns how many requests were created. */
+async function createDueRequests() {
+  let created = 0;
+  for (let result; (result = await createNextDueRequest()) !== null; ) if (result) created += 1;
+  return created;
+}
+
+module.exports = { list, get, create, update, createDueRequests, todayInDhaka, addDays };

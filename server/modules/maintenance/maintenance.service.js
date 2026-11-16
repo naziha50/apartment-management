@@ -43,6 +43,8 @@ function toDto(r) {
     // BR-17: the target time and whether it has passed (only while the request still needs action).
     dueAt: sm.deadline(r).toISOString(),
     overdue: sm.isOverdue(r),
+    // BR-25: set when the request was created from a scheduled task, for that due date.
+    scheduledTask: r.scheduled_task_id ? { id: Number(r.scheduled_task_id), dueDate: r.due_date } : null,
   };
 }
 

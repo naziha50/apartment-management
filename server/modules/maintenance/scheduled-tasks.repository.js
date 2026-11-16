@@ -55,4 +55,45 @@ async function update(buildingId, id, fields) {
   return rowCount === 1;
 }
 
-module.exports = { list, findById, insert, update };
+/**
+ * BR-25: the soonest active task whose request is due to be created (its due date is at most
+ * `leadDays` away, in Bangladesh days), locked for this transaction. SKIP LOCKED makes another
+ * server process running the same job pass over it instead of waiting and doing it twice.
+ */
+async function lockNextDue(client, leadDays) {
+  const { rows } = await client.query(
+    `SELECT id, building_id, title, description, category, interval_months, default_assignee, next_due_date
+       FROM scheduled_tasks
+      WHERE NOT is_paused AND next_due_date - $1::int <= (now() AT TIME ZONE 'Asia/Dhaka')::date
+      ORDER BY next_due_date, id
+      LIMIT 1
+      FOR UPDATE SKIP LOCKED`,
+    [leadDays],
+  );
+  return rows[0] || null;
+}
+
+/**
+ * BR-25: moves the next due date forward by the interval until its request is no longer due,
+ * so a task missed while the server was off creates one request, not one per missed period.
+ * Returns the new date.
+ */
+async function advance(client, id, leadDays) {
+  const { rows } = await client.query(
+    `UPDATE scheduled_tasks t
+        SET next_due_date = (
+              SELECT min(d)::date FROM generate_series(
+                t.next_due_date + make_interval(months => t.interval_months),
+                -- far enough for any outage (at most 1,200 monthly steps to look through)
+                t.next_due_date + make_interval(years => 100),
+                make_interval(months => t.interval_months)) AS d
+               WHERE d::date - $2::int > (now() AT TIME ZONE 'Asia/Dhaka')::date),
+            updated_at = now()
+      WHERE t.id = $1
+      RETURNING to_char(next_due_date, 'YYYY-MM-DD') AS next_due_date`,
+    [id, leadDays],
+  );
+  return rows[0].next_due_date;
+}
+
+module.exports = { list, findById, insert, update, lockNextDue, advance };
