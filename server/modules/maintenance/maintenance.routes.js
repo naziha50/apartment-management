@@ -18,6 +18,8 @@
  *                    body { note, internal? }
  *   PATCH /requests/:id/priority  change the priority     FR-18
  *                    body { priority }
+ *   POST /requests/:id/rating  rate a closed request      FR-50, BR-26
+ *                    body { rating: 1-5, comment? }
  *
  * Routes only handle HTTP; every rule is checked in maintenance.service.js,
  * so no route can skip it (NFR-02).
@@ -68,6 +70,10 @@ router.post('/requests/:id/assign', async (req, res) => {
 
 router.post('/requests/:id/notes', async (req, res) => {
   res.status(201).json(await service.addNote(req.user, req.params.id, req.body));
+});
+
+router.post('/requests/:id/rating', async (req, res) => {
+  res.status(201).json(await service.rate(req.user, req.params.id, req.body));
 });
 
 router.patch('/requests/:id/priority', async (req, res) => {

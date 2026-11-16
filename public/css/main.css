@@ -274,6 +274,9 @@ table.data tbody tr:hover { background: #fafaf7; }
 .timeline__item--internal::before { background: var(--warn); }
 .timeline__note { margin: 0.25rem 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 
+/* Rating stars (FR-50): decorative; the words next to them carry the meaning */
+.stars { color: var(--warn); letter-spacing: 0.1em; }
+
 /* Photo thumbnails (BR-19), on the form preview and the request page */
 .photos { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .photos:empty { display: none; }

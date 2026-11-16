@@ -41,7 +41,7 @@ building admin and staff review, assign, track and resolve them (SRS v1.3, §4.3
 
 **Sprint 4 – Close the loop**
 - [x] Step 21: resolved requests close automatically after 7 days (BR-18)
-- [ ] Step 22: residents rate a closed request once (FR-50, BR-26)
+- [x] Step 22: residents rate a closed request once (FR-50, BR-26)
 - [ ] Step 23: in-app notifications for status changes, assignments and notes (FR-25)
 - [ ] Step 24: photos on progress notes (BR-19)
 
@@ -136,6 +136,7 @@ next numbered file — never edit one that is already committed. See
 | `003_create_request_attachments.sql` | `request_attachments` | Photo details (BR-19). The files themselves are saved in `UPLOAD_DIR` (default `storage/uploads/`, git-ignored) under random names |
 | `004_fix_request_number_overflow.sql` | — | Request numbers keep working after 99,999 (`MR-2026-99999`, then `MR-2026-100000`). The first version cut longer numbers, which made request 100,000 clash with 10,000 |
 | `005_add_request_list_index.sql` | — | Index in the lists' sort order: first page of 100,000 requests in 0.1 ms instead of 89 ms |
+| `006_create_request_ratings.sql` | `request_ratings` | The resident's 1–5 rating and optional comment (FR-50, BR-26). One per request, never changed: the request id is the key |
 
 **Measured at scale** (100,000 requests in the test database, 50 users at once): about 1,250 API
 requests per second, no errors, 95% of answers within 70 ms.
@@ -152,12 +153,13 @@ Errors always look like `{ "error": { "code": "...", "message": "...", "fields":
 |---|---|---|
 | `POST /requests` | Residents | Submit a request (FR-16, FR-17). Body: `title` (3–120 chars), `description`, `category`, `location` (`unit` or `common_area`), and `unitId` only if the resident has more than one apartment. Send JSON, or `multipart/form-data` to add up to 3 `photos` (JPG/PNG/WEBP, 5 MB each, BR-19). Returns 201 with the new request (status `submitted`, number `MR-YYYY-NNNNN`). |
 | `GET /requests` | Everyone | Requests you may see, newest activity first, 20 per page (FR-21, FR-22): residents their own, staff those assigned to them, admins and staff with `maintenance.view_all` all of them. Optional filters: `status` (one or more, comma-separated), `category`, `priority` (`high`, `medium`, `low` or `unset`), `q` (searches the title and request number), `assigned=none` (nobody assigned yet), `page`. Returns `{ items, page, pageSize, total }` |
-| `GET /requests/:id` | Everyone | One request with its `updates` (history), `attachments` (photos) and `allowed` (what you may do now: `transitions`, `assign`, `addNote`, `setPriority`). Requests you may not see answer 404 |
+| `GET /requests/:id` | Everyone | One request with its `updates` (history), `attachments` (photos) and `rating`, `autoCloseAt` and `allowed` (what you may do now: `transitions`, `assign`, `addNote`, `setPriority`, `rate`). Requests you may not see answer 404 |
 | `GET /requests/:id/attachments/:attId` | Everyone | One photo, with the same access rule as its request |
 | `POST /requests/:id/transition` | Depends on the move | Change the status (FR-18, FR-20). Body: `to` plus `priority` when reviewing, `note` as the reason when rejecting or as the note when resolving / reopening. A move that is not allowed now answers 409 `TRANSITION_NOT_ALLOWED` |
 | `POST /requests/:id/assign` | Admin, staff with `maintenance.assign` | Assign or reassign to an active staff member (FR-19). Body: `staffId`. Allowed while the request is submitted, under review or in progress (otherwise 409 `NOT_ASSIGNABLE`). Each change is added to the history |
 | `POST /requests/:id/notes` | Admin, the assigned staff member, staff with `maintenance.review` | Add a progress note (FR-20). Body: `note`, and `internal: true` to keep it to staff and the admin. Not allowed once the request is closed, rejected or cancelled. Residents never receive internal notes |
 | `PATCH /requests/:id/priority` | Admin, staff with `maintenance.review` | Change the priority after review (FR-18). Body: `priority`. Allowed while the request is under review or in progress (otherwise 409 `PRIORITY_LOCKED`). Each change is added to the history |
+| `POST /requests/:id/rating` | The resident who reported it | Rate a closed request (FR-50, BR-26). Body: `rating` (1–5) and optional `comment` (up to 500 characters). Once only, within 7 days of closing; otherwise 409 `RATING_NOT_ALLOWED` with the reason. Anyone else gets 403 |
 | `GET /overview` | Admin, staff with `maintenance.view_all` | Request counts for the home page (FR-29): `submitted`, `under_review`, `in_progress`, `resolved`, `closed`, `unassigned` and `high_open` (the last two count requests still needing action) |
 | `GET /staff` | Admin, staff with `maintenance.assign` | Active staff, for the "assign to" picker |
 | `GET /my-units` | Residents | The resident's active apartments, for the unit picker |

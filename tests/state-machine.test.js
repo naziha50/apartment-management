@@ -2,7 +2,7 @@
 /** Unit tests for the request status rules (BR-16, Appendix A). Run with `npm test`. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { allowedTransitions, findTransition, canAssign, canAddNote, canSetPriority } = require('../server/modules/maintenance/state-machine');
+const { allowedTransitions, findTransition, canAssign, canAddNote, canSetPriority, ratingProblem, canRate } = require('../server/modules/maintenance/state-machine');
 
 const admin = { id: 1, role: 'admin', permissions: [] };
 const reviewer = { id: 2, role: 'staff', permissions: ['maintenance.review'] };
@@ -88,6 +88,17 @@ test('reviewers change the priority only after review and before it is resolved'
   for (const status of ['submitted', 'resolved', 'closed', 'rejected', 'cancelled']) {
     assert.equal(canSetPriority(req({ status }), admin), false, status);
   }
+});
+
+test('the reporting resident rates once, after closing, within 7 days', () => {
+  const now = new Date('2026-11-15T12:00:00Z');
+  const closed = req({ status: 'closed', closed_at: '2026-11-12T12:00:00Z' });
+  assert.equal(canRate(closed, resident, { now }), true);
+  assert.match(ratingProblem(closed, neighbour, { now }), /Only the resident who reported it/);
+  assert.match(ratingProblem(closed, admin, { now }), /Only the resident who reported it/);
+  assert.match(ratingProblem(closed, resident, { now, alreadyRated: true }), /already been rated/);
+  assert.match(ratingProblem(req({ status: 'resolved' }), resident, { now }), /once it is closed/);
+  assert.match(ratingProblem(req({ status: 'closed', closed_at: '2026-11-07T12:00:00Z' }), resident, { now }), /within 7 days/);
 });
 
 test('final statuses allow no moves', () => {

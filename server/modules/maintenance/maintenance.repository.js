@@ -231,8 +231,26 @@ async function autoCloseResolved(days, note) {
   return rows.map((r) => Number(r.request_id));
 }
 
+/** FR-50: the rating of a request, or null. */
+async function findRating(requestId, client = db) {
+  const { rows } = await client.query(
+    'SELECT rating, comment, created_at FROM request_ratings WHERE request_id = $1',
+    [requestId],
+  );
+  return rows[0] || null;
+}
+
+/** FR-50 / BR-26: stores a rating. The primary key refuses a second one for the same request. */
+async function insertRating(client, { buildingId, requestId, rating, comment, ratedBy }) {
+  await client.query(
+    `INSERT INTO request_ratings (building_id, request_id, rating, comment, rated_by)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [buildingId, requestId, rating, comment, ratedBy],
+  );
+}
+
 module.exports = {
-  overview, autoCloseResolved,
+  overview, autoCloseResolved, findRating, insertRating,
   findForUpdate, updateRequest, activeStaff, findActiveStaff,
   activeUnitsOf, insertRequest, insertUpdate, findById, listRequests, listUpdates,
   insertAttachments, listAttachments, findAttachment,

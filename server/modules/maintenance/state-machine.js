@@ -10,7 +10,7 @@
  *       └─► rejected
  */
 const { can } = require('../../middleware/current-user');
-const { FINAL_STATUSES, NEEDS_ACTION, RESOLVED_DAYS } = require('./maintenance.constants');
+const { FINAL_STATUSES, NEEDS_ACTION, RESOLVED_DAYS, RATING_DAYS } = require('./maintenance.constants');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -74,4 +74,18 @@ function canSetPriority(request, user) {
   return isReviewer(user) && ['under_review', 'in_progress'].includes(request.status);
 }
 
-module.exports = { allowedTransitions, findTransition, canAssign, canAddNote, canSetPriority };
+/**
+ * FR-50 / BR-26: why this user may not rate this request now, or null when they may.
+ * The resident who reported it rates once, after it is closed, within RATING_DAYS.
+ */
+function ratingProblem(request, user, { alreadyRated = false, now = new Date() } = {}) {
+  if (!isSubmitter(request, user)) return 'Only the resident who reported it can rate it.';
+  if (alreadyRated) return 'This request has already been rated.';
+  if (request.status !== 'closed') return 'You can rate a request once it is closed.';
+  if (!withinDays(request.closed_at, RATING_DAYS, now)) return `Ratings can be given within ${RATING_DAYS} days of closing.`;
+  return null;
+}
+
+const canRate = (request, user, ctx) => ratingProblem(request, user, ctx) === null;
+
+module.exports = { allowedTransitions, findTransition, canAssign, canAddNote, canSetPriority, ratingProblem, canRate };

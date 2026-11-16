@@ -116,6 +116,43 @@ function noteForm(r, user) {
   return el('details', { class: 'action' }, el('summary', { text: 'Add a note' }), form);
 }
 
+// FR-50: what each star means, so the choice is clear in words and not only in stars.
+const RATING_LABELS = { 1: 'Very poor', 2: 'Poor', 3: 'OK', 4: 'Good', 5: 'Excellent' };
+
+/** A rating as stars (hidden from screen readers) plus words. */
+function ratingText(n) {
+  return [el('span', { class: 'stars', 'aria-hidden': 'true', text: '★'.repeat(n) + '☆'.repeat(5 - n) }), ` ${n} out of 5 – ${RATING_LABELS[n]}`];
+}
+
+/** FR-50 / BR-26: the resident rates the repair once; it cannot be changed afterwards. */
+function rateForm(r, user) {
+  const button = el('button', { type: 'submit', class: 'btn btn-primary', text: 'Send rating' });
+  const form = el(
+    'form',
+    { class: 'form', novalidate: true },
+    el('p', { class: 'hint', text: 'Your rating helps the building office. You can rate once, and it cannot be changed.' }),
+    el(
+      'fieldset',
+      { class: 'field' },
+      el('legend', { text: 'How well was it fixed?' }),
+      el(
+        'div',
+        { class: 'choice-row' },
+        [1, 2, 3, 4, 5].map((n) => el('label', { class: 'choice' }, el('input', { type: 'radio', name: 'rating', value: String(n), required: true }), ` ${n} – ${RATING_LABELS[n]}`)),
+      ),
+    ),
+    el(
+      'div',
+      { class: 'field' },
+      el('label', { for: 'rating-comment' }, 'Comment ', el('span', { class: 'muted small', text: '(optional)' })),
+      el('textarea', { id: 'rating-comment', name: 'comment', maxlength: 500 }),
+    ),
+    el('div', { class: 'form-actions' }, button),
+  );
+  onSubmit(form, button, user, `/maintenance/requests/${r.id}/rating`, () => ({}), () => 'Thank you for your rating.');
+  return el('details', { class: 'action' }, el('summary', { text: 'Rate this repair' }), form);
+}
+
 /** FR-18: change the priority after review. Only the other priorities are offered. */
 function priorityForm(r, user) {
   const button = el('button', { type: 'submit', class: 'btn btn-primary', text: 'Change priority' });
@@ -212,6 +249,9 @@ function render(r, user) {
     ['Priority', priorityBadge(r.priority)],
     ['Assigned to', r.assignedTo?.fullName || 'Not assigned yet'],
   ];
+  if (r.rating) {
+    details.push(['Rating', [ratingText(r.rating.rating), r.rating.comment ? el('p', { class: 'timeline__note', text: `“${r.rating.comment}”` }) : null]]);
+  }
 
   const history = r.updates.map((u) =>
     el(
@@ -250,7 +290,7 @@ function render(r, user) {
             : `Waiting for the resident to confirm. It closes automatically on ${formatDate(r.autoCloseAt)} unless they reopen it.`,
         )
       : null,
-    r.allowed.transitions.length || r.allowed.assign || r.allowed.addNote || r.allowed.setPriority
+    r.allowed.transitions.length || r.allowed.assign || r.allowed.addNote || r.allowed.setPriority || r.allowed.rate
       ? el(
           'section',
           { class: 'card', 'aria-labelledby': 'actions-title' },
@@ -262,6 +302,7 @@ function render(r, user) {
             r.allowed.transitions.map((t) => actionForm(r, user, t)),
             r.allowed.setPriority ? priorityForm(r, user) : null,
             r.allowed.addNote ? noteForm(r, user) : null,
+            r.allowed.rate ? rateForm(r, user) : null,
           ),
         )
       : null,

@@ -276,6 +276,46 @@ it('resolved requests close by themselves after 7 days, exactly once (BR-18)', a
   assert.equal(history.filter((u) => u.toStatus === 'closed').length, 1, 'one history entry, not two');
 });
 
+it('the resident rates a closed request once, within 7 days (FR-50, BR-26)', async () => {
+  const make = async (title) => (await call(U.tanvir, 'POST', '/maintenance/requests', { title, category: 'other', location: 'unit', description: 'x' })).body.id;
+  const setStatus = (id, status, daysAgo) => pool.query(
+    `UPDATE maintenance_requests SET status = $2::request_status, resolution_note = 'Fixed',
+            resolved_at = now() - make_interval(days => $3 + 1), closed_at = CASE WHEN $2 = 'closed' THEN now() - make_interval(days => $3) END
+      WHERE id = $1`,
+    [id, status, daysAgo],
+  );
+  const rate = (user, id, body) => call(user, 'POST', `/maintenance/requests/${id}/rating`, body);
+
+  const id = await make('Rate me');
+  await setStatus(id, 'closed', 1);
+  assert.equal((await call(U.tanvir, 'GET', `/maintenance/requests/${id}`)).body.allowed.rate, true);
+
+  for (const bad of [0, 6, 2.5, 'five']) assert.equal((await rate(U.tanvir, id, { rating: bad })).status, 400, String(bad));
+  assert.equal((await rate(U.tanvir, id, { rating: 4, comment: 'x'.repeat(501) })).status, 400, 'comment too long');
+  assert.equal((await rate(U.sadia, id, { rating: 5 })).status, 404, 'cannot see it');
+  assert.equal((await rate(U.admin, id, { rating: 5 })).status, 403, 'not the reporter');
+
+  const ok = await rate(U.tanvir, id, { rating: 4, comment: 'Quick and tidy' });
+  assert.equal(ok.status, 201);
+  assert.deepEqual({ rating: ok.body.rating.rating, comment: ok.body.rating.comment }, { rating: 4, comment: 'Quick and tidy' });
+  assert.equal(ok.body.allowed.rate, false);
+  assert.equal((await rate(U.tanvir, id, { rating: 1 })).status, 409, 'once only, never changed');
+  assert.equal((await call(U.admin, 'GET', `/maintenance/requests/${id}`)).body.rating.rating, 4, 'staff see it too');
+
+  // Two quick clicks at the same moment: exactly one rating is stored.
+  const twice = await make('Double click');
+  await setStatus(twice, 'closed', 1);
+  const results = (await Promise.all([rate(U.tanvir, twice, { rating: 5 }), rate(U.tanvir, twice, { rating: 3 })])).map((r) => r.status).sort();
+  assert.deepEqual(results, [201, 409]);
+
+  const late = await make('Closed long ago');
+  await setStatus(late, 'closed', 8);
+  assert.match((await rate(U.tanvir, late, { rating: 5 })).body.error.message, /within 7 days/);
+  const open = await make('Not closed yet');
+  await setStatus(open, 'resolved', 1);
+  assert.match((await rate(U.tanvir, open, { rating: 5 })).body.error.message, /once it is closed/);
+});
+
 it('request numbers keep working after 99,999 (migration 004)', async () => {
   // Safe: this file only ever talks to the test database, which is wiped on every run.
   await pool.query("SELECT setval('maintenance_request_number_seq', 99998)");

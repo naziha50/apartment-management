@@ -172,9 +172,10 @@ async function getRequest(user, rawId) {
   const id = Number(rawId);
   const row = await loadVisible(id, user);
 
-  const [updates, attachments] = await Promise.all([
+  const [updates, attachments, rating] = await Promise.all([
     repo.listUpdates(id, { includeInternal: user.role !== 'resident' }),
     repo.listAttachments(id),
+    repo.findRating(id),
   ]);
   return {
     ...toDto(row),
@@ -201,7 +202,10 @@ async function getRequest(user, rawId) {
       assign: sm.canAssign(row, user),
       addNote: sm.canAddNote(row, user),
       setPriority: sm.canSetPriority(row, user),
+      rate: sm.canRate(row, user, { alreadyRated: Boolean(rating) }),
     },
+    // FR-50: the resident's rating, shown to everyone who can see the request.
+    rating: rating ? { rating: rating.rating, comment: rating.comment, createdAt: rating.created_at } : null,
   };
 }
 
@@ -264,6 +268,29 @@ async function getAttachment(user, rawRequestId, rawAttachmentId) {
   const file = att && uploads.filePath(att.stored_name);
   if (!file) throw notFound('We could not find that photo.');
   return { file, mimeType: att.mime_type, name: att.original_name };
+}
+
+/* ---------------------------------------------------------- FR-50 rating */
+
+/** FR-50 / BR-26: the resident rates a closed request once, 1 to 5 stars, with an optional comment. */
+async function rate(user, rawId, body) {
+  const id = Number(rawId);
+  const v = new Validator(body);
+  const rating = Number(body?.rating);
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) v.fail('rating', 'Please choose from 1 to 5 stars.');
+  const comment = v.text('comment', { required: false, max: 500, label: 'Comment' });
+  v.throwIfInvalid();
+
+  await db.withTransaction(async (client) => {
+    const row = await loadVisible(id, user, client); // locked: two quick clicks cannot both pass the check
+    const problem = sm.ratingProblem(row, user, { alreadyRated: Boolean(await repo.findRating(id, client)) });
+    if (problem) {
+      if (user.role !== 'resident' || Number(row.submitted_by) !== user.id) throw forbidden(problem);
+      throw conflict(problem, 'RATING_NOT_ALLOWED');
+    }
+    await repo.insertRating(client, { buildingId: user.buildingId, requestId: id, rating, comment, ratedBy: user.id });
+  });
+  return getRequest(user, id);
 }
 
 /* ------------------------------------------------------- BR-18 auto-close */
@@ -384,5 +411,5 @@ async function setPriority(user, rawId, body) {
 
 module.exports = {
   createRequest, myUnits, listRequests, getRequest, getAttachment,
-  transition, staffList, assign, addNote, setPriority, overview, autoCloseResolved,
+  transition, staffList, assign, addNote, setPriority, overview, autoCloseResolved, rate,
 };

@@ -23,7 +23,10 @@ const NEEDS_ACTION = Object.freeze(['submitted', 'under_review', 'in_progress'])
 // after that it is closed automatically. One number for both, so they always agree.
 const RESOLVED_DAYS = 7;
 
+// BR-26: a closed request can be rated by its resident within this many days of closing.
+const RATING_DAYS = 7;
+
 // FR-18
 const PRIORITIES = Object.freeze(['low', 'medium', 'high']);
 
-module.exports = { CATEGORIES, LOCATIONS, STATUSES, FINAL_STATUSES, NEEDS_ACTION, RESOLVED_DAYS, PRIORITIES };
+module.exports = { CATEGORIES, LOCATIONS, STATUSES, FINAL_STATUSES, NEEDS_ACTION, RESOLVED_DAYS, RATING_DAYS, PRIORITIES };
