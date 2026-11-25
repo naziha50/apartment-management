@@ -19,5 +19,7 @@ const unauthorized = (message = 'Please choose who you are viewing as.') => new 
 const forbidden = (message = 'You do not have permission to do this.') => new HttpError(403, 'FORBIDDEN', message);
 // Other people's records answer "not found", never "forbidden", so IDs cannot be probed (FR-02, NFR-24).
 const notFound = (message = 'We could not find that.') => new HttpError(404, 'NOT_FOUND', message);
+// The request is valid but the record's current state does not allow it (e.g. a status move).
+const conflict = (message, code = 'CONFLICT') => new HttpError(409, code, message);
 
-module.exports = { HttpError, badRequest, unauthorized, forbidden, notFound };
+module.exports = { HttpError, badRequest, unauthorized, forbidden, notFound, conflict };

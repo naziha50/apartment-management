@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Report a maintenance problem in your apartment or a common area.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <title>Report a problem · Green Valley Apartments</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <script src="/vendor/motion.js" defer></script>
+  <script type="module" src="/js/pages/new-request.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header" id="site-header"></header>
+
+  <main class="page" id="main" tabindex="-1">
+    <div class="page-head">
+      <h1>Report a problem</h1>
+    </div>
+
+    <section class="card" id="content" aria-live="polite">
+      <!-- FR-16: title, description, category, location. FR-17: resident and unit are filled in by the server. -->
+      <form id="request-form" class="form" novalidate hidden>
+        <div class="field">
+          <label for="title">Title <span class="req" aria-hidden="true">*</span></label>
+          <p class="hint" id="title-hint">A short summary, e.g. “Kitchen tap is leaking”.</p>
+          <input id="title" name="title" type="text" minlength="3" maxlength="120" required aria-describedby="title-hint">
+        </div>
+
+        <div class="field">
+          <label for="category">Category <span class="req" aria-hidden="true">*</span></label>
+          <select id="category" name="category" required></select>
+        </div>
+
+        <fieldset class="field">
+          <legend>Where is the problem?</legend>
+          <div class="choice-row">
+            <label class="choice"><input type="radio" name="location" value="unit" checked> Inside my apartment</label>
+            <label class="choice"><input type="radio" name="location" value="common_area"> Common area</label>
+          </div>
+        </fieldset>
+
+        <div class="field" id="unit-field" hidden>
+          <label for="unitId">Apartment <span class="req" aria-hidden="true">*</span></label>
+          <select id="unitId" name="unitId"></select>
+        </div>
+
+        <div class="field">
+          <label for="description">Description <span class="req" aria-hidden="true">*</span></label>
+          <p class="hint" id="description-hint">What is wrong, where exactly, and since when?</p>
+          <textarea id="description" name="description" maxlength="4000" required aria-describedby="description-hint"></textarea>
+        </div>
+
+        <div class="field">
+          <label for="photos">Photos <span class="muted small">(optional)</span></label>
+          <p class="hint" id="photos-hint">Up to 3 photos. JPG, PNG or WEBP, 5 MB each.</p>
+          <input id="photos" name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple aria-describedby="photos-hint">
+          <div class="photos" id="photo-preview"></div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Submit request</button>
+          <a class="btn btn-secondary" href="/resident/requests.html">Cancel</a>
+        </div>
+      </form>
+      <p class="muted" id="loading">Loading…</p>
+    </section>
+  </main>
+</body>
+</html>

@@ -6,8 +6,19 @@
  *   strings from user input (NFR-04).
  * - withTransaction(): runs several queries all-or-nothing (NFR-14).
  */
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
 const config = require('../config');
+const { toIso } = require('../lib/dates');
+
+// DATE columns (e.g. a task's due date) stay 'YYYY-MM-DD' text: a calendar day, not a moment.
+// 1082 is PostgreSQL's DATE type.
+types.setTypeParser(1082, (value) => value);
+
+// TIMESTAMPTZ columns (created_at, submitted_at …) become ISO text with the time zone's offset,
+// which is what the API sends. Code that does arithmetic wraps them in new Date() first.
+// 1184 is PostgreSQL's TIMESTAMPTZ type; its default parser reads PostgreSQL's text format.
+const parseTimestamp = types.getTypeParser(1184);
+types.setTypeParser(1184, (value) => toIso(parseTimestamp(value)));
 
 const pool = new Pool({
   connectionString: config.databaseUrl,
