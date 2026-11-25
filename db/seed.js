@@ -40,6 +40,15 @@ const OCCUPANCIES = [
   ['resident3@example.com', '2B', 'owner'],
 ];
 
+// unit, title, amount (taka), due date, payment [method, paid on] or null if unpaid
+const BILLS = [
+  ['1A', 'Service charge - October 2026', 3000, '2026-10-10', ['bkash', '2026-10-05']],
+  ['2A', 'Service charge - October 2026', 3000, '2026-10-10', ['cash', '2026-10-09']],
+  ['2B', 'Service charge - October 2026', 2500, '2026-10-10', null], // overdue
+  ['1A', 'Service charge - December 2026', 3000, '2026-12-10', null],
+  ['3B', 'Service charge - December 2026', 2500, '2026-12-10', null],
+];
+
 async function seed({ databaseUrl, log = console.log } = {}) {
   const client = new Client({ connectionString: databaseUrl || require('../server/config').databaseUrl });
   await client.connect();
@@ -88,8 +97,26 @@ async function seed({ databaseUrl, log = console.log } = {}) {
       );
     }
 
+    const adminId = userIds['admin@example.com'];
+    for (const [unitNumber, title, amount, dueDate, payment] of BILLS) {
+      // Skip bills that already exist (same unit and title), so seeding twice adds nothing.
+      const { rows } = await client.query(
+        `INSERT INTO bills (unit_id, title, amount, due_date, created_by)
+         SELECT $1, $2, $3, $4, $5
+          WHERE NOT EXISTS (SELECT 1 FROM bills WHERE unit_id = $1 AND title = $2)
+         RETURNING id`,
+        [unitIds[unitNumber], title, amount, dueDate, adminId],
+      );
+      if (rows[0] && payment) {
+        await client.query(
+          'INSERT INTO payments (bill_id, amount, method, paid_on, recorded_by) VALUES ($1, $2, $3, $4, $5)',
+          [rows[0].id, amount, payment[0], payment[1], adminId],
+        );
+      }
+    }
+
     await client.query('COMMIT');
-    log(`Seeded ${USERS.length} users, ${UNITS.length} units and ${OCCUPANCIES.length} occupancies.`);
+    log(`Seeded ${USERS.length} users, ${UNITS.length} units, ${OCCUPANCIES.length} occupancies and ${BILLS.length} bills.`);
     return { userIds, unitIds };
   } catch (err) {
     await client.query('ROLLBACK');

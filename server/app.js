@@ -14,6 +14,7 @@ const db = require('./db/pool');
 const { loadCurrentUser } = require('./middleware/current-user');
 const { errorHandler, apiNotFound } = require('./middleware/error-handler');
 const usersRoutes = require('./modules/users/users.routes');
+const billingRoutes = require('./modules/billing/billing.routes');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
@@ -36,6 +37,7 @@ function createApp() {
     }
   });
   api.use(usersRoutes);
+  api.use(billingRoutes);
 
   api.use(apiNotFound);
   app.use('/api/v1', api);

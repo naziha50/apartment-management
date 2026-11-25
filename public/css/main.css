@@ -27,3 +27,24 @@ body { margin: 0; font-family: var(--font); line-height: 1.55; color: var(--ink)
 
 .page { max-width: 1120px; margin: 0 auto; padding: 1.5rem 1rem; }
 .notice { background: #fff1d6; border: 1px solid #ebcf95; border-radius: 8px; padding: 0.75rem 1rem; }
+a.brand { color: #fff; text-decoration: none; }
+
+/* Forms */
+.form { display: grid; gap: 0.75rem; max-width: 420px; }
+.form label { display: grid; gap: 0.25rem; font-weight: 600; }
+input, select, button { min-height: 40px; padding: 0 0.5rem; font: inherit; border: 1px solid var(--line); border-radius: 6px; }
+button { background: var(--primary); color: #fff; border-color: var(--primary); cursor: pointer; }
+button:disabled { opacity: 0.6; cursor: default; }
+.field-error { color: #a4161a; font-weight: 400; font-size: 0.9rem; }
+
+/* Tables */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; background: var(--surface); }
+th, td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--line); }
+.pay-controls { display: flex; gap: 0.5rem; }
+
+/* Bill status */
+.badge { padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600; }
+.badge-paid { background: #d8f0e0; color: #1d5c34; }
+.badge-unpaid { background: #eceae4; color: var(--ink-2); }
+.badge-overdue { background: #fbdcdc; color: #a4161a; }

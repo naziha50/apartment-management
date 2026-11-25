@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bills · Apartment Management</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <script type="module" src="/js/bills.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Green Valley Apartments</a>
+    <label class="viewing-as">
+      <span>Viewing as</span>
+      <select id="viewing-as"><option value="">Loading…</option></select>
+    </label>
+  </header>
+
+  <main class="page">
+    <h1>Bills and payments</h1>
+    <p id="message" aria-live="polite"></p>
+
+    <!-- Admin only: create a new bill -->
+    <section id="create-section" hidden>
+      <h2>Create a bill</h2>
+      <form id="create-form" class="form" novalidate>
+        <label>Unit
+          <select name="unitId"></select>
+          <span class="field-error" data-for="unitId"></span>
+        </label>
+        <label>Title
+          <input name="title" type="text" maxlength="100" placeholder="Service charge - November 2026">
+          <span class="field-error" data-for="title"></span>
+        </label>
+        <label>Amount (taka)
+          <input name="amount" type="number" min="1" step="1">
+          <span class="field-error" data-for="amount"></span>
+        </label>
+        <label>Due date
+          <input name="dueDate" type="date">
+          <span class="field-error" data-for="dueDate"></span>
+        </label>
+        <button type="submit">Create bill</button>
+      </form>
+    </section>
+
+    <!-- Admin sees every bill; a resident sees only their own -->
+    <section id="bills-section" hidden>
+      <h2 id="bills-heading">Bills</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Unit</th>
+              <th>Title</th>
+              <th>Amount</th>
+              <th>Due date</th>
+              <th>Status</th>
+              <th id="action-heading">Payment</th>
+            </tr>
+          </thead>
+          <tbody id="bills-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
