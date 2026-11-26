@@ -225,6 +225,10 @@ it('filters, search and the overview (FR-22, FR-29)', async () => {
   assert.equal(overview.status, 200);
   assert.equal(overview.body.closed, 1);
   assert.equal(overview.body.submitted, 0);
+  // FR-29: a count for every status (BR-16).
+  for (const status of ['submitted', 'under_review', 'in_progress', 'resolved', 'closed', 'rejected', 'cancelled']) {
+    assert.equal(typeof overview.body[status], 'number', status);
+  }
   assert.equal((await call(U.jamal, 'GET', '/maintenance/overview')).status, 403);
 });
 
@@ -495,6 +499,61 @@ it('scheduled tasks become requests 7 days before they are due, exactly once (BR
   for (const title of ['Fire extinguisher check', 'Roof drain clearing', 'Twin run']) {
     await call(U.admin, 'POST', `/maintenance/requests/${(await requestFor(title)).id}/transition`, { to: 'rejected', note: 'Test data' });
   }
+});
+
+it('a new request is announced to the admin and staff with maintenance.view_all, not maintenance.review (FR-16)', async () => {
+  const grant = (p) => pool.query('INSERT INTO staff_permissions (user_id, permission) VALUES ($1, $2)', [U.jamal, p]);
+  const told = async (title) => (await call(U.jamal, 'GET', '/notifications')).body.items.some((n) => n.message.includes(title));
+  const submit = async (title) => (await call(U.tanvir, 'POST', '/maintenance/requests', { title, category: 'other', location: 'unit', description: 'x' })).body.id;
+  try {
+    await grant('maintenance.review');
+    const a = await submit('Office notice A');
+    assert.equal(await told('Office notice A'), false, 'review alone is not enough');
+    await grant('maintenance.view_all');
+    const b = await submit('Office notice B');
+    assert.equal(await told('Office notice B'), true);
+    assert.equal((await call(U.admin, 'GET', '/notifications')).body.items.some((n) => n.message.includes('Office notice B')), true, 'the admin too');
+    for (const id of [a, b]) await call(U.tanvir, 'POST', `/maintenance/requests/${id}/transition`, { to: 'cancelled' });
+  } finally {
+    await pool.query("DELETE FROM staff_permissions WHERE user_id = $1 AND permission IN ('maintenance.review', 'maintenance.view_all')", [U.jamal]);
+  }
+});
+
+it('at most 3 photos per request in total, photos on notes included (BR-19)', async () => {
+  const withPhotos = (fields, count) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries(fields)) f.append(k, v);
+    for (let i = 0; i < count; i += 1) f.append('photos', new Blob([PNG]), `p${i}.png`);
+    return f;
+  };
+  const created = await call(U.tanvir, 'POST', '/maintenance/requests', withPhotos({ title: 'Photo limit', category: 'other', location: 'unit', description: 'x' }, 2));
+  assert.equal(created.status, 201);
+  const notes = `/maintenance/requests/${created.body.id}/notes`;
+
+  const tooMany = await call(U.admin, 'POST', notes, withPhotos({ note: 'Two more' }, 2));
+  assert.equal(tooMany.status, 400);
+  assert.match(tooMany.body.error.fields.photos, /already has 2 photos; you can add 1 more/);
+  assert.equal((await call(U.admin, 'POST', notes, withPhotos({ note: 'One more', internal: 'true' }, 1))).status, 201);
+  const full = await call(U.admin, 'POST', notes, withPhotos({ note: 'And another' }, 1));
+  assert.match(full.body.error.fields.photos, /already has 3 photos, the most allowed/, 'internal photos count too');
+  assert.equal((await call(U.admin, 'POST', notes, { note: 'A note without photos still works' })).status, 201);
+  assert.equal((await call(U.admin, 'GET', `/maintenance/requests/${created.body.id}`)).body.attachments.length, 3);
+  await call(U.admin, 'POST', `/maintenance/requests/${created.body.id}/transition`, { to: 'rejected', note: 'Test data' });
+});
+
+it('setting the priority of a new request puts it under review (FR-18)', async () => {
+  const id = (await call(U.tanvir, 'POST', '/maintenance/requests', { title: 'Priority on submit', category: 'other', location: 'unit', description: 'x' })).body.id;
+  const url = `/maintenance/requests/${id}/priority`;
+  assert.equal((await call(U.jamal, 'PATCH', url, { priority: 'high' })).status, 404, 'Jamal cannot see it');
+  assert.equal((await call(U.tanvir, 'PATCH', url, { priority: 'high' })).status, 403, 'residents cannot');
+  const res = await call(U.karim, 'PATCH', url, { priority: 'high' });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, 'under_review');
+  assert.equal(res.body.priority, 'high');
+  const last = res.body.updates.at(-1);
+  assert.deepEqual([last.kind, last.fromStatus, last.toStatus], ['status_change', 'submitted', 'under_review'], 'recorded like Start review');
+  assert.equal((await call(U.karim, 'PATCH', url, { priority: 'low' })).body.priority, 'low', 'after review it is a normal priority change');
+  await call(U.admin, 'POST', `/maintenance/requests/${id}/transition`, { to: 'rejected', note: 'Test data' });
 });
 
 it('photos: checked by content, served only to people who may see the request (BR-19)', async () => {

@@ -1,5 +1,5 @@
 /**
- * FR-25: my notifications, newest first, 20 per page. Unread ones are marked
+ * FR-25: my notifications, newest first, 25 per page. Unread ones are marked
  * "New" (in words, not only colour). Opening one marks it read, then goes to
  * its request.
  */

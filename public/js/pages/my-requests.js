@@ -1,6 +1,6 @@
 /**
  * FR-21: "My requests" — the resident's requests, most recently updated first,
- * 20 per page (UI-07). On phones the table turns into stacked cards (UI-03).
+ * 25 per page (UI-07). On phones the table turns into stacked cards (UI-03).
  */
 import { api } from '../api.js';
 import { $, el, replace } from '../dom.js';

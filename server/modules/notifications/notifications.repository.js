@@ -18,7 +18,7 @@ async function officeUserIds(client, buildingId) {
     `SELECT u.id FROM users u
       WHERE u.building_id = $1 AND u.is_active
         AND (u.role = 'admin'
-             OR (u.role = 'staff' AND EXISTS (SELECT 1 FROM staff_permissions p WHERE p.user_id = u.id AND p.permission = 'maintenance.review')))`,
+             OR (u.role = 'staff' AND EXISTS (SELECT 1 FROM staff_permissions p WHERE p.user_id = u.id AND p.permission = 'maintenance.view_all')))`,
     [buildingId],
   );
   return rows.map((r) => Number(r.id));

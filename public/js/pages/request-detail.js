@@ -11,7 +11,7 @@ import { api } from '../api.js';
 import { $, el, replace } from '../dom.js';
 import { LOCATION_LABELS, NEEDS_ACTION, PRIORITY_LABELS, STATUS_LABELS, categoryLabel, formatDate, formatDateTime, overdueBadge, priorityBadge, statusBadge } from '../format.js';
 import { initLayout } from '../layout.js';
-import { appendPhotos, photoField, photoProblem, watchPhotos } from '../photos.js';
+import { MAX_FILES, appendPhotos, photoField, photoProblem, watchPhotos } from '../photos.js';
 import { animateIn, animateList, errorState, showFieldErrors, toast, withBusy } from '../ui.js';
 
 const main = $('#main');
@@ -107,17 +107,19 @@ function assignForm(r, user) {
 function noteForm(r, user) {
   const internal = el('input', { type: 'checkbox', id: 'note-internal' });
   const button = el('button', { type: 'submit', class: 'btn btn-primary', text: 'Add note' });
-  const photos = photoField('note-photos'); // BR-19: e.g. before/after pictures of the repair
+  // BR-19: e.g. before/after pictures of the repair, while the request has room (3 photos in all).
+  const room = MAX_FILES - r.attachments.length;
+  const photos = room > 0 ? photoField('note-photos', room) : null;
   const form = el(
     'form',
     { class: 'form', novalidate: true },
     el('p', { class: 'hint', text: 'Tell the resident how the work is going, or leave an internal note for staff.' }),
     el('div', { class: 'field' }, el('label', { for: 'note-text', text: 'Note' }), el('textarea', { id: 'note-text', name: 'note', maxlength: 2000, required: true })),
-    photos.field,
+    photos ? photos.field : el('p', { class: 'hint', text: `This request already has ${MAX_FILES} photos, the most allowed.` }),
     el('label', { class: 'choice' }, internal, ' Internal note (only staff and the admin can see it, photos included)'),
     el('div', { class: 'form-actions' }, button),
   );
-  watchPhotos(form, photos.input, photos.preview);
+  if (photos) watchPhotos(form, photos.input, photos.preview);
   onSubmit(form, button, user, `/maintenance/requests/${r.id}/notes`, () => ({ internal: internal.checked }), () => (internal.checked ? 'Internal note added.' : 'Note added.'));
   return el('details', { class: 'action' }, el('summary', { text: 'Add a note' }), form);
 }
@@ -195,7 +197,7 @@ function onSubmit(form, button, user, path, extra, message, method = 'post') {
     const fileInput = form.querySelector('input[type="file"]');
     let body;
     if (fileInput?.files.length) {
-      const problem = photoProblem([...fileInput.files]);
+      const problem = photoProblem([...fileInput.files], Number(fileInput.dataset.max) || MAX_FILES);
       if (problem) return showFieldErrors(form, { [fileInput.name]: problem });
       body = new FormData(form);
       for (const [key, value] of Object.entries(extra())) body.set(key, String(value));

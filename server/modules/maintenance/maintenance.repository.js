@@ -80,7 +80,7 @@ async function findById(id) {
  * sort 'oldest' puts the longest-waiting first (FR-18 review queue); otherwise newest activity first.
  * Returns { rows, total } where total counts every match, not just this page.
  */
-async function listRequests(buildingId, scope = {}, filters = {}, { limit = 20, offset = 0 } = {}) {
+async function listRequests(buildingId, scope = {}, filters = {}, { limit = 25, offset = 0 } = {}) {
   const params = [buildingId];
   const where = ['r.building_id = $1'];
   // Adds a condition; every "?" in it becomes the same new parameter.
@@ -104,8 +104,8 @@ async function listRequests(buildingId, scope = {}, filters = {}, { limit = 20, 
   if (filters.q) add('(r.title ILIKE ? OR r.request_number ILIKE ?)', `%${filters.q.replace(/[\\%_]/g, '\\$&')}%`);
 
   // The page and the total are two queries on purpose: counting inside the page query
-  // (count(*) OVER ()) makes PostgreSQL fetch and sort every match just to show 20.
-  // With the index from migration 005 the page reads only its 20 rows (about 12x faster
+  // (count(*) OVER ()) makes PostgreSQL fetch and sort every match just to show one page.
+  // With the index from migration 005 the page reads only its own rows (about 12x faster
   // at 100,000 requests); the count is a separate, cheap scan.
   const whereSql = where.join(' AND ');
   const [page, count] = await Promise.all([
@@ -165,6 +165,12 @@ async function insertAttachments(client, { buildingId, requestId, uploadedBy, up
       [buildingId, requestId, updateId, f.storedName, f.originalName, f.mime, f.size, uploadedBy],
     );
   }
+}
+
+/** BR-19: how many photos a request has (all of them, internal notes included). */
+async function countAttachments(client, requestId) {
+  const { rows } = await client.query('SELECT count(*) AS n FROM request_attachments WHERE request_id = $1', [requestId]);
+  return Number(rows[0].n);
 }
 
 /** A request's photos, in upload order. Photos of internal notes only when `includeInternal`. */
@@ -257,6 +263,8 @@ async function overview(buildingId) {
        count(*) FILTER (WHERE status = 'in_progress')  AS in_progress,
        count(*) FILTER (WHERE status = 'resolved')     AS resolved,
        count(*) FILTER (WHERE status = 'closed')       AS closed,
+       count(*) FILTER (WHERE status = 'rejected')     AS rejected,
+       count(*) FILTER (WHERE status = 'cancelled')    AS cancelled,
        count(*) FILTER (WHERE status = ANY($2::request_status[]) AND assigned_to IS NULL) AS unassigned,
        count(*) FILTER (WHERE status = ANY($2::request_status[]) AND priority = 'high') AS high_open,
        count(*) FILTER (WHERE ${OVERDUE_SQL}) AS overdue
@@ -379,5 +387,5 @@ module.exports = {
   overview, report, autoCloseResolved, findRating, insertRating,
   findForUpdate, updateRequest, activeStaff, findActiveStaff, filterOptions,
   activeUnitsOf, insertRequest, insertScheduledRequest, insertUpdate, findById, listRequests, listUpdates,
-  insertAttachments, listAttachments, findAttachment,
+  insertAttachments, countAttachments, listAttachments, findAttachment,
 };
