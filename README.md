@@ -4,7 +4,7 @@ A web application that brings the daily work of an apartment building into one p
 residents, units, bills and payments, maintenance requests, announcements and reports.
 It is written for apartment buildings in Bangladesh (amounts in BDT, English and Bangla text).
 
-CSE327 – Software Engineering project, built in sprints from the
+CSE451 – Software Engineering project, built in sprints from the
 **Software Requirements Specification (SRS) v1.3**.
 
 > **Current state:** the **Maintenance** module (SRS §4.3) is **complete**: every maintenance
