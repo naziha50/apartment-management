@@ -368,3 +368,7 @@ input[type="file"] { min-height: var(--tap); font: inherit; max-width: 100%; }
 .field--inline select { width: auto; }
 /* Fields keep their own height instead of stretching to the tallest one in the row. */
 .task-form { align-items: start; }
+
+/* ------------------------------------------- overview groups (FR-29) */
+.stats-title { margin: 1rem 0 0.5rem; font-size: 1rem; color: var(--ink-2); }
+.stats-title:first-of-type { margin-top: 0.25rem; }

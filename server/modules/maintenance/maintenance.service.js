@@ -18,6 +18,7 @@ const { Validator, toId } = require('../../lib/validate');
 const { dayOf, toIso } = require('../../lib/dates');
 const { toCsv } = require('../../lib/csv');
 const { forbidden, notFound, conflict, badRequest } = require('../../lib/errors');
+const { uploads: { maxFiles: MAX_PHOTOS } } = require('../../config');
 const { can } = require('../../middleware/current-user');
 
 /** Turns a database row into the JSON the API returns (camelCase, numbers as numbers). */
@@ -146,7 +147,7 @@ function scopeFor(user) {
   return { submittedBy: user.id };
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 25; // UI-07
 const MAX_PAGE = 10000; // keeps OFFSET a sane number whatever is typed into the address bar
 
 /** FR-22: list filters from the query string, e.g. ?status=submitted,under_review&priority=high&q=tap */
@@ -463,6 +464,18 @@ async function addNote(user, rawId, body, files = []) {
     await db.withTransaction(async (client) => {
       const row = await loadVisible(id, user, client);
       if (!sm.canAddNote(row, user)) throw forbidden('You cannot add notes to this request.');
+      // BR-19: at most MAX_PHOTOS per request in total (counted with the row locked, so two notes cannot both squeeze in).
+      if (photos.length) {
+        const have = await repo.countAttachments(client, id);
+        if (have + photos.length > MAX_PHOTOS) {
+          const room = MAX_PHOTOS - have;
+          throw badRequest('Too many photos for this request.', {
+            photos: room > 0
+              ? `This request already has ${have} photo${have === 1 ? '' : 's'}; you can add ${room} more.`
+              : `This request already has ${MAX_PHOTOS} photos, the most allowed.`,
+          });
+        }
+      }
       const updateId = await repo.insertUpdate(client, { requestId: id, authorId: user.id, kind: 'note', note, isInternal: internal });
       // Files are written only once the person is allowed to add this note.
       saved = await uploads.saveFiles(photos);
@@ -492,9 +505,14 @@ async function setPriority(user, rawId, body) {
   const priority = v.oneOf('priority', PRIORITIES, { label: 'Priority' });
   v.throwIfInvalid();
 
+  // FR-18: setting the priority of a new request is reviewing it, so it takes the same path as
+  // "Start review" (status Under review, history and notifications included).
+  const current = await loadVisible(id, user);
+  if (!can(user, 'maintenance.review')) throw forbidden('You cannot change the priority of requests.');
+  if (current.status === 'submitted') return transition(user, id, { to: 'under_review', priority });
+
   await db.withTransaction(async (client) => {
     const row = await loadVisible(id, user, client);
-    if (!can(user, 'maintenance.review')) throw forbidden('You cannot change the priority of requests.');
     if (!sm.canSetPriority(row, user)) {
       throw conflict(`You cannot change the priority of a request that is ${statusText(row.status)}.`, 'PRIORITY_LOCKED');
     }

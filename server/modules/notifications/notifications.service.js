@@ -9,7 +9,7 @@
 const repo = require('./notifications.repository');
 const { notFound } = require('../../lib/errors');
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 25; // UI-07
 const MAX_MESSAGE = 300; // matches the CHECK in migration 007
 
 /**
@@ -22,12 +22,12 @@ async function notify(client, { buildingId, requestId = null, message, to, excep
   await repo.insertMany(client, userIds.map((userId) => ({ buildingId, userId, requestId, message: text })));
 }
 
-/** Tells the admin and reviewing staff (e.g. about a new request). */
+/** Tells the office: the admin and staff who see every request (FR-16: a new request). */
 async function notifyOffice(client, { buildingId, requestId, message, except }) {
   await notify(client, { buildingId, requestId, message, to: await repo.officeUserIds(client, buildingId), except });
 }
 
-/** The user's notifications, newest first, 20 per page, with the unread count. */
+/** The user's notifications, newest first, 25 per page, with the unread count. */
 async function list(user, query = {}) {
   const page = Math.min(10000, Math.max(1, Number.parseInt(query.page, 10) || 1));
   const { rows, total, unread } = await repo.listForUser(user.id, { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE });

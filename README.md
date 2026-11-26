@@ -98,10 +98,10 @@ New modules (billing, announcements, …) will follow the same pattern next to `
 | **FR-19** Assign to staff | Pick an active staff member, reassign later. Every change is kept in the history and the new assignee is notified |
 | **FR-20** Status and progress | Only the moves in SRS Appendix A are offered. *Resolved* needs a note. Notes can be internal (hidden from the resident) and can carry up to 3 photos. Updates are saved with name and time and cannot be edited |
 | **FR-21** Track my requests | Residents see status, priority, assignee and non-internal notes of their own requests only |
-| **FR-22** History and reports | Lists with filters by status, category, priority, apartment, assigned staff (or nobody), overdue, and submission date range, plus search by title or number; 20 per page. A **Report** page (admin, staff with `reports.view`) shows, for any period: requests per status and category, average time to resolve overall, per category and per staff member, and the 5 apartments with the most requests |
+| **FR-22** History and reports | Lists with filters by status, category, priority, apartment, assigned staff (or nobody), overdue, and submission date range, plus search by title or number; 25 per page (UI-07). A **Report** page (admin, staff with `reports.view`) shows, for any period: requests per status and category, average time to resolve overall, per category and per staff member, and the 5 apartments with the most requests |
 | **FR-38** Export to CSV | "Download CSV" on the requests page saves every request matching the current filters (not just one page) as a spreadsheet file. It opens correctly in Excel and Google Sheets, including Bangla names. Text a spreadsheet would run as a formula (e.g. a title starting with `=`) is kept as plain text. Internal notes are never included |
 | **FR-25 / FR-26** Notifications | Bell with unread count on every page, kept current while the page is open; list of past notifications, mark one or all as read; clicking opens the request |
-| **FR-29** Maintenance overview | Admin home page shows overdue requests (highlighted), counts per status, unassigned and open high-priority requests; each count links to the filtered list |
+| **FR-29** Maintenance overview | Admin home page shows "Needs attention" (overdue, highlighted; not assigned; open high priority) and a count for every one of the seven statuses; each count links to the filtered list |
 | **FR-35** Cancel, confirm, reopen | Cancel while *Submitted*; confirm a *Resolved* request (→ *Closed*) or reopen it within 7 days with a comment |
 | **FR-49** Scheduled tasks | A **Scheduled tasks** page (admin, staff with `maintenance.assign`) to add and edit recurring jobs (title, category, every 1–24 months, next due date, default assignee, description), pause and resume them, and list all tasks or those due in the next 90 days. Each row shows when its request will be created |
 | **FR-50** Rate a request | 1–5 stars and an optional comment, once, within 7 days after closing. The admin and assignee see it; the report shows the average rating overall, per category and per staff member |
@@ -109,7 +109,7 @@ New modules (billing, announcements, …) will follow the same pattern next to `
 | **BR-17** Resolution targets | High 24 hours, Medium 3 days, Low 7 days from submission; without a priority it must be reviewed within 2 days. A request still needing action past its target is *overdue*: shown on the lists, the request page ("Resolve by" / "Review by") and the overview, and filterable. The targets are fixed in `maintenance.constants.js` until a settings screen exists |
 | **BR-25** Scheduled tasks | 7 days before a task's due date the server creates its request: common area, Medium, *Under review*, submitted by "System", assigned to the task's default assignee (if still active staff). Its deadline is the end of the due day, not the BR-17 target. The task then moves forward by its interval. Paused tasks create nothing. The assignee is notified, or the office when nobody is assigned. There is no resident to confirm these requests, so once resolved **the admin closes them** (or they close by themselves after 7 days); they show "System (scheduled task)" as the submitter and are never rated |
 | **BR-18** Auto-close | A *Resolved* request closes by itself 7 days later unless reopened |
-| **BR-19** Photos | JPG, PNG or WEBP, 5 MB each, up to 3; checked by file *content*, saved under random names |
+| **BR-19** Photos | JPG, PNG or WEBP, 5 MB each, at most 3 per request in total (report and note photos together; the note form shows how many still fit); checked by file *content*, saved under random names |
 | **BR-26** Ratings | Once only, never changed (one rating per request is enforced by the database) |
 
 ### Quality requirements covered
@@ -328,7 +328,7 @@ Nobody is notified about their own action, and residents are never told about in
 
 | Event | Notified |
 |---|---|
-| New request | The admin and staff with `maintenance.review` |
+| New request | The admin and staff with `maintenance.view_all` (FR-16) |
 | Status change (including reopen and reject) | The resident and the assigned staff member |
 | Assigned | The new assignee |
 | Note | The resident and the assignee; an internal note only the assignee |
@@ -352,15 +352,15 @@ calendar days (due dates, filter dates) as `YYYY-MM-DD`. Errors always look like
 | Method & path | Who | What it does |
 |---|---|---|
 | `POST /requests` | Residents | Submit a request (FR-16, FR-17). Body: `title` (3–120 chars), `description`, `category`, `location` (`unit` or `common_area`), and `unitId` only if the resident has more than one unit. JSON, or `multipart/form-data` with up to 3 `photos`. Returns 201 with the new request |
-| `GET /requests` | Everyone | Requests you may see, newest activity first, 20 per page. Filters: `status` (comma-separated), `category`, `priority` (`high`, `medium`, `low`, `unset`), `q` (title or number), `assigned=none` or `assignedTo` (a staff id), `unitId`, `from` / `to` (`YYYY-MM-DD`, the day it was submitted; `to` includes the whole day), `overdue=1` (BR-17), `page`. `sort=oldest` lists the longest-waiting first (FR-18). Returns `{ items, page, pageSize, total }` |
+| `GET /requests` | Everyone | Requests you may see, newest activity first, 25 per page. Filters: `status` (comma-separated), `category`, `priority` (`high`, `medium`, `low`, `unset`), `q` (title or number), `assigned=none` or `assignedTo` (a staff id), `unitId`, `from` / `to` (`YYYY-MM-DD`, the day it was submitted; `to` includes the whole day), `overdue=1` (BR-17), `page`. `sort=oldest` lists the longest-waiting first (FR-18). Returns `{ items, page, pageSize, total }` |
 | `GET /requests/:id` | Everyone | One request (like every request in the API: with `dueAt` and `overdue`, BR-17, and `scheduledTask` `{ id, dueDate }` when a scheduled task created it, BR-25) with `updates` (history), `attachments`, `rating`, `autoCloseAt` and `allowed` (what you may do now: `transitions`, `assign`, `addNote`, `setPriority`, `rate`). Requests you may not see answer 404 |
 | `GET /requests/:id/attachments/:attId` | Everyone | One photo, with the same access rule as its request |
 | `POST /requests/:id/transition` | Depends on the move | Change the status. Body: `to`, plus `priority` when reviewing and `note` when rejecting, resolving or reopening. A move not allowed now answers 409 `TRANSITION_NOT_ALLOWED` |
 | `POST /requests/:id/assign` | Admin, staff with `maintenance.assign` | Assign or reassign. Body: `staffId`. Only while submitted, under review or in progress (else 409 `NOT_ASSIGNABLE`) |
-| `POST /requests/:id/notes` | Admin, the assignee, staff with `maintenance.review` | Add a note. Body: `note`, optional `internal: true`. `multipart/form-data` to add up to 3 `photos`. Not allowed once the request is final |
-| `PATCH /requests/:id/priority` | Admin, staff with `maintenance.review` | Change the priority while under review or in progress (else 409 `PRIORITY_LOCKED`) |
+| `POST /requests/:id/notes` | Admin, the assignee, staff with `maintenance.review` | Add a note. Body: `note`, optional `internal: true`. `multipart/form-data` to add `photos`, as long as the request stays at 3 photos or fewer in total (BR-19; otherwise 400 saying how many still fit). Not allowed once the request is final |
+| `PATCH /requests/:id/priority` | Admin, staff with `maintenance.review` | Set the priority. On a submitted request this reviews it (status Under review, the same as "Start review", FR-18); under review or in progress it changes the priority; otherwise 409 `PRIORITY_LOCKED` |
 | `POST /requests/:id/rating` | The resident who reported it | Body: `rating` (1–5), optional `comment` (≤ 500 chars). Once, within 7 days of closing (else 409 `RATING_NOT_ALLOWED`). Requests from a scheduled task are not rated |
-| `GET /overview` | Admin, staff with `maintenance.view_all` | Counts for the home page: per status, `unassigned`, `high_open`, `overdue` |
+| `GET /overview` | Admin, staff with `maintenance.view_all` | Counts for the home page: one per status (all seven), `unassigned`, `high_open`, `overdue` |
 | `GET /staff` | Admin, staff with `maintenance.assign` | Active staff, for the "assign to" picker |
 | `GET /export.csv` | Admin and staff | The request list as CSV (FR-38), with the same filters and the same "who sees what" as `GET /requests`, every page at once (up to 10,000 rows; more answers 400 asking for narrower filters). UTF-8 with a byte-order mark; formula-like cells are prefixed with `'` |
 | `GET /report` | Admin, staff with `reports.view` | The maintenance report for requests submitted between `from` and `to` (optional `YYYY-MM-DD`): `byStatus`, `overall`, `byCategory` (busiest first), `topUnits` (5, problems inside the apartment only) and `byStaff`. Each figure set has `requests`, `resolved`, `avgHoursToResolve`, `ratings` and `avgRating` (null when there is nothing to average). Time to resolve runs from submission to the latest resolve |
@@ -380,7 +380,7 @@ Always for the "Viewing as" user only.
 
 | Method & path | What it does |
 |---|---|
-| `GET /` | My notifications, newest first, 20 per page (`?page=`). Returns `{ items, page, pageSize, total, unread }` |
+| `GET /` | My notifications, newest first, 25 per page (`?page=`). Returns `{ items, page, pageSize, total, unread }` |
 | `GET /unread-count` | `{ unread }`, for the bell |
 | `POST /:id/read` | Mark one as read (someone else's answers 404) |
 | `POST /read-all` | Mark all as read |
@@ -451,7 +451,7 @@ development data is never touched; the tests refuse to run against the developme
 Test photos go to a temporary folder that is deleted afterwards. If PostgreSQL is not running,
 the API tests are skipped with the reason shown and the other tests still run.
 
-Current result: **39 tests, all passing**, whatever time zone the computer itself is set to (e.g. `TZ=America/Regina npm test`).
+Current result: **42 tests, all passing**, whatever time zone the computer itself is set to (e.g. `TZ=America/Regina npm test`).
 
 ---
 

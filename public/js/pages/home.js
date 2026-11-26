@@ -5,32 +5,41 @@
  */
 import { api } from '../api.js';
 import { $, el, replace } from '../dom.js';
-import { NEEDS_ACTION } from '../format.js';
+import { NEEDS_ACTION, STATUS_LABELS } from '../format.js';
 import { initLayout } from '../layout.js';
 import { animateIn, countUp, errorState } from '../ui.js';
 
 // [count from /maintenance/overview, label, filter for /manage/requests.html, highlight when > 0]
-const TILES = [
+const ATTENTION = [
   ['overdue', 'Overdue', '?overdue=1&sort=oldest', true],
-  ['submitted', 'Waiting for review', '?status=submitted&sort=oldest', false],
   ['unassigned', 'Not assigned yet', `?status=${NEEDS_ACTION}&assigned=none`, false],
   ['high_open', 'High priority, still open', `?status=${NEEDS_ACTION}&priority=high`, true],
-  ['in_progress', 'In progress', '?status=in_progress', false],
-  ['resolved', 'Waiting for the resident to confirm', '?status=resolved', false],
 ];
+// FR-29: a count for every request status (BR-16).
+const BY_STATUS = Object.entries(STATUS_LABELS).map(([status, label]) => [
+  status, label, `?status=${status}${status === 'submitted' ? '&sort=oldest' : ''}`, false,
+]);
 
 async function showOverview() {
   const box = $('#overview');
   box.hidden = false;
   try {
     const counts = await api.get('/maintenance/overview');
-    const tiles = TILES.map(([key, label, query, alert]) => {
-      const value = el('span', { class: 'stat__value', text: '0' });
-      const tile = el('a', { class: alert && counts[key] ? 'stat stat--alert' : 'stat', href: `/manage/requests.html${query}` }, value, el('span', { class: 'stat__label', text: label }));
-      countUp(value, counts[key]);
-      return tile;
-    });
-    replace(box, el('h2', { id: 'overview-title', text: 'Maintenance overview' }), el('div', { class: 'stats' }, tiles));
+    const tiles = (list) =>
+      list.map(([key, label, query, alert]) => {
+        const value = el('span', { class: 'stat__value', text: '0' });
+        const tile = el('a', { class: alert && counts[key] ? 'stat stat--alert' : 'stat', href: `/manage/requests.html${query}` }, value, el('span', { class: 'stat__label', text: label }));
+        countUp(value, counts[key]);
+        return tile;
+      });
+    replace(
+      box,
+      el('h2', { id: 'overview-title', text: 'Maintenance overview' }),
+      el('h3', { class: 'stats-title', text: 'Needs attention' }),
+      el('div', { class: 'stats' }, tiles(ATTENTION)),
+      el('h3', { class: 'stats-title', text: 'By status' }),
+      el('div', { class: 'stats' }, tiles(BY_STATUS)),
+    );
     animateIn(box);
   } catch (err) {
     replace(box, errorState(err, showOverview));
