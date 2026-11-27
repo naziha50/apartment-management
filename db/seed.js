@@ -40,13 +40,16 @@ const OCCUPANCIES = [
   ['resident3@example.com', '2B', 'owner'],
 ];
 
-// unit, title, amount (taka), due date, payment [method, paid on] or null if unpaid
+// unit, bill type, month (1st day), due date, charges [type, description, amount], payments [amount, method, paid on]
 const BILLS = [
-  ['1A', 'Service charge - October 2026', 3000, '2026-10-10', ['bkash', '2026-10-05']],
-  ['2A', 'Service charge - October 2026', 3000, '2026-10-10', ['cash', '2026-10-09']],
-  ['2B', 'Service charge - October 2026', 2500, '2026-10-10', null], // overdue
-  ['1A', 'Service charge - December 2026', 3000, '2026-12-10', null],
-  ['3B', 'Service charge - December 2026', 2500, '2026-12-10', null],
+  ['1A', 'service_charge', '2026-10-01', '2026-10-10', [['service_charge', 'Service charge', 3000]], [[3000, 'bkash', '2026-10-05']]],
+  ['2A', 'service_charge', '2026-10-01', '2026-10-10', [['service_charge', 'Service charge', 3000]], [[3000, 'cash', '2026-10-09']]],
+  ['2B', 'service_charge', '2026-10-01', '2026-10-10', [['service_charge', 'Service charge', 2500]], []], // overdue
+  // Two charges (service charge + water), paid in two parts: 3000 of 3500 paid.
+  ['1A', 'service_charge', '2026-11-01', '2026-12-05', [['service_charge', 'Service charge', 3000], ['utility', 'Water bill', 500]], [[2000, 'cash', '2026-11-03'], [1000, 'bkash', '2026-11-20']]],
+  ['3B', 'service_charge', '2026-11-01', '2026-11-10', [['service_charge', 'Service charge', 2500]], []], // overdue
+  ['1A', 'service_charge', '2026-12-01', '2026-12-10', [['service_charge', 'Service charge', 3000]], []],
+  ['3B', 'service_charge', '2026-12-01', '2026-12-10', [['service_charge', 'Service charge', 2500]], []],
 ];
 
 async function seed({ databaseUrl, log = console.log } = {}) {
@@ -98,19 +101,26 @@ async function seed({ databaseUrl, log = console.log } = {}) {
     }
 
     const adminId = userIds['admin@example.com'];
-    for (const [unitNumber, title, amount, dueDate, payment] of BILLS) {
-      // Skip bills that already exist (same unit and title), so seeding twice adds nothing.
+    for (const [unitNumber, billType, billMonth, dueDate, charges, payments] of BILLS) {
+      // Skip bills that already exist (same unit, type and month), so seeding twice adds nothing.
       const { rows } = await client.query(
-        `INSERT INTO bills (unit_id, title, amount, due_date, created_by)
-         SELECT $1, $2, $3, $4, $5
-          WHERE NOT EXISTS (SELECT 1 FROM bills WHERE unit_id = $1 AND title = $2)
+        `INSERT INTO bills (unit_id, bill_type, bill_month, due_date, created_by)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (unit_id, bill_type, bill_month) DO NOTHING
          RETURNING id`,
-        [unitIds[unitNumber], title, amount, dueDate, adminId],
+        [unitIds[unitNumber], billType, billMonth, dueDate, adminId],
       );
-      if (rows[0] && payment) {
+      if (!rows[0]) continue;
+      for (const [chargeType, description, amount] of charges) {
+        await client.query(
+          'INSERT INTO bill_charges (bill_id, charge_type, description, amount) VALUES ($1, $2, $3, $4)',
+          [rows[0].id, chargeType, description, amount],
+        );
+      }
+      for (const [amount, method, paidOn] of payments) {
         await client.query(
           'INSERT INTO payments (bill_id, amount, method, paid_on, recorded_by) VALUES ($1, $2, $3, $4, $5)',
-          [rows[0].id, amount, payment[0], payment[1], adminId],
+          [rows[0].id, amount, method, paidOn, adminId],
         );
       }
     }

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Billing report · Apartment Management</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <script type="module" src="/js/report.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Green Valley Apartments</a>
+    <label class="viewing-as">
+      <span>Viewing as</span>
+      <select id="viewing-as"><option value="">Loading…</option></select>
+    </label>
+  </header>
+
+  <main class="page">
+    <p><a href="/bills.html">&larr; Back to bills</a></p>
+    <h1>Billing report</h1>
+    <p id="message" aria-live="polite"></p>
+
+    <section id="report-section" hidden>
+      <form id="range-form" class="form" novalidate>
+        <label>From month (leave empty for all time)
+          <input name="from" type="month">
+          <span class="field-error" data-for="from"></span>
+        </label>
+        <label>To month
+          <input name="to" type="month">
+          <span class="field-error" data-for="to"></span>
+        </label>
+        <button type="submit">Show report</button>
+      </form>
+
+      <dl class="details">
+        <dt>Total billed</dt><dd id="s-billed"></dd>
+        <dt>Collected</dt><dd id="s-collected"></dd>
+        <dt>Outstanding</dt><dd id="s-outstanding"></dd>
+      </dl>
+
+      <h2>Units with unpaid dues</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Unit</th><th>Resident</th><th>Unpaid bills</th><th>Amount owed</th><th>Oldest due date</th></tr>
+          </thead>
+          <tbody id="dues-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

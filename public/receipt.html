@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Receipt · Apartment Management</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <script type="module" src="/js/receipt.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Green Valley Apartments</a>
+    <label class="viewing-as">
+      <span>Viewing as</span>
+      <select id="viewing-as"><option value="">Loading…</option></select>
+    </label>
+  </header>
+
+  <main class="page">
+    <p class="no-print"><a href="/bills.html">&larr; Back to bills</a></p>
+    <h1>Payment receipt</h1>
+    <p id="message" aria-live="polite"></p>
+
+    <section id="receipt-section" class="receipt" hidden>
+      <dl class="details">
+        <dt>Receipt number</dt><dd id="r-number"></dd>
+        <dt>Building</dt><dd id="r-building"></dd>
+        <dt>Resident</dt><dd id="r-resident"></dd>
+        <dt>Unit</dt><dd id="r-unit"></dd>
+        <dt>Bill</dt><dd id="r-bill"></dd>
+        <dt>Amount paid</dt><dd id="r-amount"></dd>
+        <dt>Date</dt><dd id="r-date"></dd>
+        <dt>Method</dt><dd id="r-method"></dd>
+        <dt>Recorded by</dt><dd id="r-recorded"></dd>
+      </dl>
+      <p class="no-print">
+        <button type="button" id="print-button">Print / save as PDF</button>
+        <button type="button" id="download-button">Download receipt</button>
+      </p>
+    </section>
+  </main>
+</body>
+</html>

@@ -15,6 +15,7 @@ const { loadCurrentUser } = require('./middleware/current-user');
 const { errorHandler, apiNotFound } = require('./middleware/error-handler');
 const usersRoutes = require('./modules/users/users.routes');
 const billingRoutes = require('./modules/billing/billing.routes');
+const dashboardRoutes = require('./modules/dashboard/dashboard.routes');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
@@ -38,6 +39,7 @@ function createApp() {
   });
   api.use(usersRoutes);
   api.use(billingRoutes);
+  api.use(dashboardRoutes);
 
   api.use(apiNotFound);
   app.use('/api/v1', api);

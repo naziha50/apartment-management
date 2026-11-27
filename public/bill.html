@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bill · Apartment Management</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <script type="module" src="/js/bill.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Green Valley Apartments</a>
+    <label class="viewing-as">
+      <span>Viewing as</span>
+      <select id="viewing-as"><option value="">Loading…</option></select>
+    </label>
+  </header>
+
+  <main class="page">
+    <p><a href="/bills.html">&larr; Back to bills</a></p>
+    <h1 id="bill-title">Bill</h1>
+    <p id="message" aria-live="polite"></p>
+
+    <section id="bill-section" hidden>
+      <dl class="details">
+        <dt>Unit</dt><dd id="d-unit"></dd>
+        <dt>Due date</dt><dd id="d-due"></dd>
+        <dt>Status</dt><dd id="d-status"></dd>
+        <dt>Total</dt><dd id="d-total"></dd>
+        <dt>Paid</dt><dd id="d-paid"></dd>
+        <dt>Balance</dt><dd id="d-balance"></dd>
+      </dl>
+
+      <h2>Charges</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Type</th><th>Description</th><th>Amount</th><th id="charge-action-heading"></th></tr>
+          </thead>
+          <tbody id="charges-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Admin only: add a charge (FR-10) -->
+      <form id="charge-form" class="form" novalidate hidden>
+        <h3>Add a charge</h3>
+        <label>Type
+          <select name="chargeType">
+            <option value="service_charge">Service charge</option>
+            <option value="rent">Rent</option>
+            <option value="utility">Utility</option>
+            <option value="other">Other</option>
+          </select>
+          <span class="field-error" data-for="chargeType"></span>
+        </label>
+        <label>Description
+          <input name="description" type="text" maxlength="200">
+          <span class="field-error" data-for="description"></span>
+        </label>
+        <label>Amount (taka)
+          <input name="amount" type="number" min="1" step="1">
+          <span class="field-error" data-for="amount"></span>
+        </label>
+        <button type="submit">Add charge</button>
+      </form>
+
+      <h2>Payments</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Date</th><th>Amount</th><th>Method</th><th>Recorded by</th><th>Receipt</th></tr>
+          </thead>
+          <tbody id="payments-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Admin only: record a payment (FR-11) -->
+      <form id="payment-form" class="form" novalidate hidden>
+        <h3>Record a payment</h3>
+        <label>Amount (taka)
+          <input name="amount" type="number" min="1" step="1">
+          <span class="field-error" data-for="amount"></span>
+        </label>
+        <label>Method
+          <select name="method">
+            <option value="cash">Cash</option>
+            <option value="bkash">bKash</option>
+            <option value="bank">Bank</option>
+          </select>
+          <span class="field-error" data-for="method"></span>
+        </label>
+        <label>Date
+          <input name="paidOn" type="date">
+          <span class="field-error" data-for="paidOn"></span>
+        </label>
+        <button type="submit">Record payment</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

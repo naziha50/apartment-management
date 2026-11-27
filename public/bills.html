@@ -20,7 +20,41 @@
     <h1>Bills and payments</h1>
     <p id="message" aria-live="polite"></p>
 
-    <!-- Admin only: create a new bill -->
+    <!-- Admin only: generate bills for a month (FR-09) -->
+    <section id="generate-section" hidden>
+      <h2>Generate bills for a month</h2>
+      <p>Creates one bill for every occupied unit that does not already have this type of bill for the month.</p>
+      <form id="generate-form" class="form" novalidate>
+        <label>Month
+          <input name="month" type="month">
+          <span class="field-error" data-for="month"></span>
+        </label>
+        <label>Bill type
+          <select name="billType">
+            <option value="service_charge">Service charge</option>
+            <option value="rent">Rent</option>
+            <option value="utility">Utility</option>
+            <option value="other">Other</option>
+          </select>
+          <span class="field-error" data-for="billType"></span>
+        </label>
+        <label>Due date
+          <input name="dueDate" type="date">
+          <span class="field-error" data-for="dueDate"></span>
+        </label>
+        <label>Amount (taka)
+          <input name="amount" type="number" min="1" step="1">
+          <span class="field-error" data-for="amount"></span>
+        </label>
+        <label>Description
+          <input name="description" type="text" maxlength="200" placeholder="Monthly service charge">
+          <span class="field-error" data-for="description"></span>
+        </label>
+        <button type="submit">Generate bills</button>
+      </form>
+    </section>
+
+    <!-- Admin only: create one bill for one unit -->
     <section id="create-section" hidden>
       <h2>Create a bill</h2>
       <form id="create-form" class="form" novalidate>
@@ -28,38 +62,82 @@
           <select name="unitId"></select>
           <span class="field-error" data-for="unitId"></span>
         </label>
-        <label>Title
-          <input name="title" type="text" maxlength="100" placeholder="Service charge - November 2026">
-          <span class="field-error" data-for="title"></span>
+        <label>Bill type
+          <select name="billType">
+            <option value="service_charge">Service charge</option>
+            <option value="rent">Rent</option>
+            <option value="utility">Utility</option>
+            <option value="other">Other</option>
+          </select>
+          <span class="field-error" data-for="billType"></span>
         </label>
-        <label>Amount (taka)
-          <input name="amount" type="number" min="1" step="1">
-          <span class="field-error" data-for="amount"></span>
+        <label>Month
+          <input name="month" type="month">
+          <span class="field-error" data-for="month"></span>
         </label>
         <label>Due date
           <input name="dueDate" type="date">
           <span class="field-error" data-for="dueDate"></span>
         </label>
+        <label>Amount (taka)
+          <input name="amount" type="number" min="1" step="1">
+          <span class="field-error" data-for="amount"></span>
+        </label>
+        <label>Description
+          <input name="description" type="text" maxlength="200" placeholder="Monthly service charge">
+          <span class="field-error" data-for="description"></span>
+        </label>
         <button type="submit">Create bill</button>
       </form>
     </section>
 
+    <p id="admin-links" hidden><a href="/report.html">View the billing report</a></p>
+
     <!-- Admin sees every bill; a resident sees only their own -->
     <section id="bills-section" hidden>
       <h2 id="bills-heading">Bills</h2>
+      <p id="owe-text" class="owe"></p>
+      <label class="filter">Show
+        <select id="status-filter">
+          <option value="all">All</option>
+          <option value="unpaid">Unpaid</option>
+          <option value="overdue">Overdue</option>
+          <option value="paid">Paid</option>
+        </select>
+      </label>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
               <th>Unit</th>
-              <th>Title</th>
-              <th>Amount</th>
+              <th>Bill</th>
+              <th>Total</th>
+              <th>Balance</th>
               <th>Due date</th>
               <th>Status</th>
-              <th id="action-heading">Payment</th>
+              <th></th>
             </tr>
           </thead>
           <tbody id="bills-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="payments-section" hidden>
+      <h2 id="payments-heading">Payments</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th id="payments-unit-heading">Unit</th>
+              <th>Bill</th>
+              <th>Amount</th>
+              <th>Method</th>
+              <th>Receipt</th>
+            </tr>
+          </thead>
+          <tbody id="payments-body"></tbody>
         </table>
       </div>
     </section>
