@@ -220,6 +220,9 @@ database pool are closed and the server exits.
 | `npm run db:reset` | **Deletes all data** and rebuilds every table (development only). Run `db:seed` after it |
 | `npm run db:backup` | Saves a backup of the database to `backups/` (NFR-09). Restore with `psql "<DATABASE_URL>" -f backups/<file>.sql` |
 | `npm run check:speed` | Times the common pages and actions and checks each answers within 3 seconds (NFR-10, NFR-11) |
+| `npm run lint` | Checks the JavaScript with ESLint and the CSS with Stylelint (coding standards) |
+| `npm run format` | Formats the JavaScript with Prettier |
+| `npm run docs` | Builds the code documentation website from the JSDoc comments into `docs/` (open `docs/index.html`) |
 
 ### Performance and reliability (NFR-08 to NFR-11)
 

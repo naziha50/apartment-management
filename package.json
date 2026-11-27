@@ -16,6 +16,9 @@
     "db:seed": "node db/seed.js",
     "db:backup": "node db/backup.js",
     "check:speed": "node scripts/check-speed.js",
+    "lint": "eslint . && stylelint \"public/css/**/*.css\"",
+    "format": "prettier --write \"server/**/*.js\" \"db/**/*.js\" \"scripts/**/*.js\" \"public/js/*.js\"",
+    "docs": "jsdoc -c jsdoc.json",
     "test": "node --test"
   },
   "dependencies": {
@@ -25,5 +28,14 @@
     "motion": "^14.12.0",
     "multer": "^2.5.0",
     "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "globals": "^17.14.0",
+    "jsdoc": "^4.0.5",
+    "prettier": "^3.10.1",
+    "stylelint": "^17.16.0",
+    "stylelint-config-recommended": "^18.0.0"
   }
 }

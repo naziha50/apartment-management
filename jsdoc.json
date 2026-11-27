@@ -1,0 +1,11 @@
+{
+  "source": {
+    "include": ["server", "db", "scripts", "public/js", "README.md"],
+    "includePattern": "\\.js$",
+    "excludePattern": "(node_modules|vendor)"
+  },
+  "opts": {
+    "destination": "docs",
+    "recurse": true
+  }
+}
