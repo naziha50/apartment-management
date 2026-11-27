@@ -17,6 +17,7 @@ const { securityHeaders, noStore } = require('./middleware/security');
 const usersRoutes = require('./modules/users/users.routes');
 const maintenanceRoutes = require('./modules/maintenance/maintenance.routes');
 const notificationsRoutes = require('./modules/notifications/notifications.routes');
+const residentsRoutes = require('./modules/residents/residents.routes');
 
 const ROOT = path.join(__dirname, '..');
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -51,6 +52,7 @@ function createApp() {
   api.use(usersRoutes);
   api.use('/maintenance', maintenanceRoutes);
   api.use('/notifications', notificationsRoutes);
+  api.use('/residents', residentsRoutes);
 
   api.use(apiNotFound);
   app.use('/api/v1', api);

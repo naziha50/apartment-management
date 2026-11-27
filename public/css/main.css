@@ -186,7 +186,7 @@ main[tabindex="-1"]:focus { outline: none; }
 .field label, .field legend { font-weight: 600; }
 .field .hint { margin: 0; color: var(--ink-2); font-size: 0.875rem; }
 .req { color: var(--danger); }
-input[type="text"], input[type="search"], input[type="date"], input[type="number"], select, textarea {
+input[type="text"], input[type="search"], input[type="email"], input[type="tel"], input[type="date"], input[type="number"], select, textarea {
   width: 100%; min-height: var(--tap); padding: 0.55rem 0.75rem;
   font: inherit; color: var(--ink); background: var(--surface);
   border: 1px solid #a9a69c; border-radius: var(--radius-sm);
