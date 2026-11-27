@@ -20,7 +20,12 @@ const paymentsBody = document.getElementById('payments-body');
 const chargeForm = document.getElementById('charge-form');
 const paymentForm = document.getElementById('payment-form');
 
+const chargeFormTitle = document.getElementById('charge-form-title');
+const chargeSubmit = document.getElementById('charge-submit');
+const chargeCancel = document.getElementById('charge-cancel');
+
 let currentUser = null;
+let editingChargeId = null; // null = the form adds a new charge; a number = it changes that charge (FR-10)
 
 // ---------- Showing the page for the chosen user ----------
 
@@ -56,7 +61,7 @@ function draw(bill, charges, payments) {
   billSection.hidden = false;
   chargeForm.hidden = !isAdmin;
   paymentForm.hidden = !isAdmin;
-  chargeActionHeading.textContent = isAdmin ? 'Remove' : '';
+  chargeActionHeading.textContent = isAdmin ? 'Actions' : '';
 
   title.textContent = billLabel(bill.billType, bill.billMonth);
   document.getElementById('d-unit').textContent = bill.unitNumber;
@@ -80,7 +85,7 @@ function draw(bill, charges, payments) {
     row.insertCell().textContent = charge.description;
     row.insertCell().textContent = taka(charge.amount);
     const actionCell = row.insertCell();
-    if (isAdmin) actionCell.append(makeRemoveButton(charge));
+    if (isAdmin) actionCell.append(makeEditButton(charge), ' ', makeRemoveButton(charge));
   }
 
   // Payments
@@ -121,7 +126,36 @@ function makeRemoveButton(charge) {
   return button;
 }
 
-// ---------- Add a charge (admin, FR-10) ----------
+/** An "Edit" button for one charge (admin): fills the charge form so it can be changed. */
+function makeEditButton(charge) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = 'Edit';
+  button.setAttribute('aria-label', `Edit charge ${charge.description}`);
+  button.addEventListener('click', () => {
+    const form = chargeForm.elements;
+    form.chargeType.value = charge.chargeType;
+    form.description.value = charge.description;
+    form.amount.value = String(charge.amount);
+    setEditing(charge.id);
+    form.description.focus();
+  });
+  return button;
+}
+
+/** Switches the charge form between "add a new charge" (null) and "change this charge" (an id). */
+function setEditing(chargeId) {
+  editingChargeId = chargeId;
+  chargeFormTitle.textContent = chargeId ? 'Edit charge' : 'Add a charge';
+  chargeSubmit.textContent = chargeId ? 'Save changes' : 'Add charge';
+  chargeCancel.hidden = !chargeId;
+  showFieldErrors(chargeForm, {});
+  if (!chargeId) chargeForm.reset();
+}
+
+chargeCancel.addEventListener('click', () => setEditing(null));
+
+// ---------- Add or change a charge (admin, FR-10) ----------
 
 chargeForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -135,9 +169,14 @@ chargeForm.addEventListener('submit', async (event) => {
   };
 
   try {
-    await api.post(`/bills/${encodeURIComponent(billId)}/charges`, body);
-    message.textContent = 'Charge added.';
-    chargeForm.reset();
+    if (editingChargeId) {
+      await api.patch(`/bills/${encodeURIComponent(billId)}/charges/${editingChargeId}`, body);
+      message.textContent = 'Charge changed.';
+    } else {
+      await api.post(`/bills/${encodeURIComponent(billId)}/charges`, body);
+      message.textContent = 'Charge added.';
+    }
+    setEditing(null);
     await loadBill();
   } catch (err) {
     message.textContent = err.message;

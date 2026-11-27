@@ -4,9 +4,10 @@
  *
  * GET    /api/v1/bills                      admin: every bill · resident: bills of their own units (FR-12)
  * POST   /api/v1/bills                      admin: create one bill with its first charge (FR-09)
- * POST   /api/v1/bills/generate             admin: bills for every occupied unit for a month (FR-09)
+ * POST   /api/v1/bills/generate             admin: bills for every unit for a month (FR-09)
  * GET    /api/v1/bills/:id                  one bill with its charges and payments (FR-10)
  * POST   /api/v1/bills/:id/charges          admin: add a charge (FR-10)
+ * PATCH  /api/v1/bills/:id/charges/:chargeId admin: change a charge (FR-10)
  * DELETE /api/v1/bills/:id/charges/:chargeId admin: remove a charge (FR-10)
  * POST   /api/v1/bills/:id/payment          admin: record a payment, full or partial (FR-11)
  * GET    /api/v1/payments                   admin: all payments · resident: their own (FR-13)
@@ -116,14 +117,14 @@ router.post('/bills', requireUser, requireAdmin, async (req, res) => {
   res.status(201).json({ bill: await bills.findById(id, req.user.buildingId, null) });
 });
 
-// Generate the monthly bills for every occupied unit (FR-09). All or nothing (NFR-08).
+// Generate the monthly bills for every unit in the building (FR-09). All or nothing (NFR-08).
 router.post('/bills/generate', requireUser, requireAdmin, async (req, res) => {
   const body = req.body;
   const errors = checkBillFields(body);
   if (Object.keys(errors).length) throw badRequest('Please fix the highlighted fields.', errors);
 
   const result = await db.withTransaction(async (client) => {
-    const units = await bills.listOccupiedUnits(client, req.user.buildingId);
+    const units = await bills.listAllUnits(client, req.user.buildingId);
     let created = 0;
     const skipped = []; // unit numbers that already had this bill
     for (const unit of units) {
@@ -162,15 +163,21 @@ router.get('/bills/:id', requireUser, requireAdminOrResident, async (req, res) =
 
 // ---------- Charges (FR-10) ----------
 
-router.post('/bills/:id/charges', requireUser, requireAdmin, async (req, res) => {
-  const id = readId(req.params.id);
-  const { chargeType, description, amount } = req.body;
-
+/** Checks the fields of a charge (used when adding and when changing one). Returns the errors found. */
+function checkChargeFields({ chargeType, description, amount }) {
   const errors = {};
   if (!BILL_TYPES.includes(chargeType)) errors.chargeType = 'Choose a charge type.';
   if (typeof description !== 'string' || description.trim() === '') errors.description = 'Enter a description.';
   else if (description.trim().length > 200) errors.description = 'Keep the description under 200 characters.';
   if (!Number.isInteger(amount) || amount <= 0) errors.amount = 'Enter the amount in whole taka, more than 0.';
+  return errors;
+}
+
+router.post('/bills/:id/charges', requireUser, requireAdmin, async (req, res) => {
+  const id = readId(req.params.id);
+  const { chargeType, description, amount } = req.body;
+
+  const errors = checkChargeFields(req.body);
   if (Object.keys(errors).length) throw badRequest('Please fix the highlighted fields.', errors);
 
   await db.withTransaction(async (client) => {
@@ -178,6 +185,32 @@ router.post('/bills/:id/charges', requireUser, requireAdmin, async (req, res) =>
     await bills.addCharge(client, { billId: id, chargeType, description: description.trim(), amount });
   });
   res.status(201).json({ bill: await bills.findById(id, req.user.buildingId, null) });
+});
+
+// Change a charge (FR-10: "the bill total updates after charges are added or changed").
+router.patch('/bills/:id/charges/:chargeId', requireUser, requireAdmin, async (req, res) => {
+  const id = readId(req.params.id);
+  const chargeId = readId(req.params.chargeId);
+  const { chargeType, description, amount } = req.body;
+
+  const errors = checkChargeFields(req.body);
+  if (Object.keys(errors).length) throw badRequest('Please fix the highlighted fields.', errors);
+
+  await db.withTransaction(async (client) => {
+    if (!id || !(await bills.lockBill(client, id, req.user.buildingId))) throw notFound('We could not find that bill.');
+    const charge = chargeId ? await bills.findCharge(client, id, chargeId) : null;
+    if (!charge) throw notFound('We could not find that charge.');
+
+    // The new total must not drop below what has already been paid.
+    const { total, paid } = await bills.getTotals(client, id);
+    if (total - charge.amount + amount < paid) {
+      throw badRequest('Please fix the highlighted fields.', {
+        amount: `The bill would then cost less than the ৳${paid} already paid.`,
+      });
+    }
+    await bills.updateCharge(client, chargeId, { chargeType, description: description.trim(), amount });
+  });
+  res.json({ bill: await bills.findById(id, req.user.buildingId, null) });
 });
 
 router.delete('/bills/:id/charges/:chargeId', requireUser, requireAdmin, async (req, res) => {
