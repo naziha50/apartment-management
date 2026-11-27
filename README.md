@@ -218,6 +218,17 @@ database pool are closed and the server exits.
 | `npm run db:migrate` | Applies new migrations |
 | `npm run db:seed` | Adds the demo data |
 | `npm run db:reset` | **Deletes all data** and rebuilds every table (development only). Run `db:seed` after it |
+| `npm run db:backup` | Saves a backup of the database to `backups/` (NFR-09). Restore with `psql "<DATABASE_URL>" -f backups/<file>.sql` |
+| `npm run check:speed` | Times the common pages and actions and checks each answers within 3 seconds (NFR-10, NFR-11) |
+
+### Performance and reliability (NFR-08 to NFR-11)
+
+| NFR | How it is met | How to check it |
+|---|---|---|
+| NFR-08 No partial saves | Billing changes run in a database transaction (`withTransaction`), so they are saved completely or not at all | `npm test` runs `tests/reliability.test.mjs` |
+| NFR-09 Backups | `npm run db:backup` copies the whole database with `pg_dump`; schedule it (e.g. nightly with Task Scheduler) for regular backups | Run it and look in `backups/` |
+| NFR-10 Answers within ~3 s | Every common action answers in well under 3 seconds with the demo data | `npm run check:speed` |
+| NFR-11 Fast search and filters | Searches and lists use indexed columns (unit, bill, payment) | `npm run check:speed` (search rows) |
 
 ---
 
