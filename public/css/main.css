@@ -396,9 +396,9 @@ input[type="file"] { min-height: var(--tap); font: inherit; max-width: 100%; }
 
 .owe { font-size: 1.25rem; font-weight: 650; }
 .filter { display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; font-weight: 600; }
-.details { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1.5rem; margin: 1rem 0; }
-.details dt { font-weight: 600; }
-.details dd { margin: 0; }
+.billing-page .details { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1.5rem; margin: 1rem 0; }
+.billing-page .details dt { font-weight: 600; }
+.billing-page .details dd { margin: 0; }
 .receipt { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.5rem; max-width: 560px; }
 
 @media print {
