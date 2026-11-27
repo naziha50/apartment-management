@@ -151,13 +151,11 @@ async function createBillWithCharge(client, { buildingId, unitId, billType, bill
   return billId;
 }
 
-/** Units that someone lives in right now (for generating monthly bills). */
-async function listOccupiedUnits(client, buildingId) {
+/** Every unit in the building (FR-09: monthly bills go to all apartments, occupied or not). */
+async function listAllUnits(client, buildingId) {
   const { rows } = await client.query(
     `SELECT u.id, u.unit_number FROM units u
       WHERE u.building_id = $1
-        AND EXISTS (SELECT 1 FROM occupancies o
-                     WHERE o.unit_id = u.id AND (o.end_date IS NULL OR o.end_date >= CURRENT_DATE))
       ORDER BY u.unit_number`,
     [buildingId],
   );
@@ -212,6 +210,14 @@ async function findCharge(client, billId, chargeId) {
 
 async function deleteCharge(client, chargeId) {
   await client.query('DELETE FROM bill_charges WHERE id = $1', [chargeId]);
+}
+
+/** Changes the type, description and amount of one charge (FR-10). */
+async function updateCharge(client, chargeId, { chargeType, description, amount }) {
+  await client.query(
+    'UPDATE bill_charges SET charge_type = $2, description = $3, amount = $4 WHERE id = $1',
+    [chargeId, chargeType, description, amount],
+  );
 }
 
 // ---------- Payments ----------
@@ -363,7 +369,7 @@ async function unitExists(unitId, buildingId) {
 
 module.exports = {
   listAll, listForResident, findById, listCharges, listPaymentsForBill,
-  createBillWithCharge, listOccupiedUnits, billExists, lockBill, getTotals,
+  createBillWithCharge, listAllUnits, billExists, updateCharge, lockBill, getTotals,
   addCharge, findCharge, deleteCharge,
   createPayment, listAllPayments, listPaymentsForResident, findPaymentForReceipt,
   getSummary, listUnitsWithDues, listUnits, unitExists,

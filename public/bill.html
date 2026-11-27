@@ -37,7 +37,7 @@
 
       <!-- Admin only: add a charge (FR-10) -->
       <form id="charge-form" class="form" novalidate hidden>
-        <h3>Add a charge</h3>
+        <h3 id="charge-form-title">Add a charge</h3>
         <label>Type
           <select name="chargeType">
             <option value="service_charge">Service charge</option>
@@ -55,7 +55,8 @@
           <input name="amount" type="number" min="1" step="1">
           <span class="field-error" data-for="amount"></span>
         </label>
-        <button type="submit">Add charge</button>
+        <button type="submit" id="charge-submit">Add charge</button>
+        <button type="button" id="charge-cancel" hidden>Cancel editing</button>
       </form>
 
       <h2>Payments</h2>
