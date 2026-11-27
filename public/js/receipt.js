@@ -5,7 +5,7 @@
  * Data from the server is always inserted with textContent, never innerHTML.
  */
 import { api } from './api.js';
-import { initViewingAs } from './viewing-as.js';
+import { initLayout } from './layout.js';
 import { METHOD_TEXT, billLabel, taka, receiptNumber } from './bill-format.js';
 
 const paymentId = new URLSearchParams(location.search).get('id');
@@ -78,6 +78,6 @@ document.getElementById('download-button').addEventListener('click', () => {
   URL.revokeObjectURL(link.href);
 });
 
-initViewingAs(document.getElementById('viewing-as'), showPage).catch((err) => {
+initLayout({ active: 'bills' }).then(showPage).catch((err) => {
   message.textContent = `Could not load users: ${err.message}`;
 });

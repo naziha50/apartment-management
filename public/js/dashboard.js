@@ -7,7 +7,7 @@
  * so it cannot inject script.
  */
 import { api } from './api.js';
-import { initViewingAs } from './viewing-as.js';
+import { initLayout } from './layout.js';
 
 const message = document.getElementById('message');
 const dashboard = document.getElementById('dashboard');
@@ -164,6 +164,6 @@ searchForm.addEventListener('submit', async (event) => {
   }
 });
 
-initViewingAs(document.getElementById('viewing-as'), showPage).catch((err) => {
+initLayout({ active: 'dashboard' }).then(showPage).catch((err) => {
   message.textContent = err.message;
 });

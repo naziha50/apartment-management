@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Review, assign and follow up maintenance requests.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <title>Requests · Green Valley Apartments</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <script src="/vendor/motion.js" defer></script>
+  <script type="module" src="/js/pages/manage-requests.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header" id="site-header"></header>
+
+  <main class="page" id="main" tabindex="-1">
+    <div class="page-head">
+      <div>
+        <h1 id="page-title">Maintenance requests</h1>
+        <p class="muted" id="page-hint">Most recently updated first.</p>
+      </div>
+      <!-- FR-38: the list with the current filters as a spreadsheet file. -->
+      <button type="button" class="btn btn-secondary" id="export" hidden>Download CSV</button>
+    </div>
+
+    <!-- FR-22: filters and search, filled in by manage-requests.js -->
+    <section class="card" id="filters" hidden></section>
+
+    <!-- FR-18 / FR-19 / FR-20: the requests this admin or staff member works on. -->
+    <!-- Hidden until the first results arrive, so the filter bar appearing above it cannot push it down. -->
+    <section class="card card--flush" id="content" aria-live="polite" hidden>
+      <p class="muted empty">Loading…</p>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Maintenance report: requests by status and category, time to resolve, busiest apartments and ratings.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <title>Maintenance report · Green Valley Apartments</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <script src="/vendor/motion.js" defer></script>
+  <script type="module" src="/js/pages/report.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header" id="site-header"></header>
+
+  <main class="page" id="main" tabindex="-1">
+    <div class="page-head">
+      <div>
+        <h1>Maintenance report</h1>
+        <p class="muted">Requests submitted in the chosen period.</p>
+      </div>
+    </div>
+
+    <!-- FR-22: the period, kept in the address (?from=…&to=…). -->
+    <section class="card" id="period"></section>
+
+    <!-- FR-22 / FR-50: the figures, as tables so screen readers and printing get the same numbers (NFR-12). -->
+    <div class="stack" id="content" aria-live="polite">
+      <section class="card"><p class="muted empty">Loading…</p></section>
+    </div>
+  </main>
+</body>
+</html>

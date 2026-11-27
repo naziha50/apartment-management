@@ -5,7 +5,7 @@
   "description": "Apartment Management — Maintenance module (CSE327). HTML/CSS frontend, Node.js REST API, PostgreSQL.",
   "main": "server/server.js",
   "engines": {
-    "node": ">=20"
+    "node": ">=20.11"
   },
   "scripts": {
     "start": "node server/server.js",
@@ -13,11 +13,15 @@
     "db:create": "node db/create-db.js",
     "db:migrate": "node db/migrate.js",
     "db:reset": "node db/migrate.js --reset",
-    "db:seed": "node db/seed.js"
+    "db:seed": "node db/seed.js",
+    "test": "node --test"
   },
   "dependencies": {
+    "animejs": "^4.5.0",
     "dotenv": "^18.0.10",
     "express": "^5.3.0",
+    "motion": "^14.12.0",
+    "multer": "^2.5.0",
     "pg": "^8.23.1"
   }
 }

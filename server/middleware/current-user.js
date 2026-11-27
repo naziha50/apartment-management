@@ -10,14 +10,18 @@
  * Everything else in the app only ever reads `req.user`. When real login is
  * built, only this file changes (read the session instead of the header).
  */
+const config = require('../config');
 const users = require('../modules/users/users.repository');
 const { unauthorized } = require('../lib/errors');
+
+// Anyone can send this header, so it is ignored on a live server: nobody is logged in there until real login exists.
+const devStandInEnabled = config.env !== 'production';
 
 /** Sets req.user to { id, buildingId, role, fullName, email, phone, permissions } or null. */
 async function loadCurrentUser(req, res, next) {
   req.user = null;
   const raw = req.get('X-User-Id');
-  if (!raw) return next();
+  if (!raw || !devStandInEnabled) return next();
   const id = Number(raw);
   if (!Number.isSafeInteger(id) || id <= 0) return next(unauthorized('The selected user is not valid. Please choose again.'));
   try {
@@ -41,4 +45,4 @@ function can(user, permission) {
   return user.role === 'staff' && user.permissions.includes(permission);
 }
 
-module.exports = { loadCurrentUser, requireUser, can };
+module.exports = { loadCurrentUser, requireUser, can, devStandInEnabled };

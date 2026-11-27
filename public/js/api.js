@@ -23,7 +23,7 @@ export function setViewingAs(userId) {
   }
 }
 
-export class ApiError extends Error {
+class ApiError extends Error {
   constructor(status, body) {
     const error = body?.error || {};
     super(error.message || 'Something went wrong. Please try again.');
@@ -37,11 +37,12 @@ async function request(method, path, body) {
   const headers = { Accept: 'application/json' };
   const userId = getViewingAs();
   if (userId) headers['X-User-Id'] = userId;
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const isForm = body instanceof FormData; // the browser sets the multipart Content-Type itself
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
 
   let res;
   try {
-    res = await fetch(BASE + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    res = await fetch(BASE + path, { method, headers, body: body === undefined || isForm ? body : JSON.stringify(body) });
   } catch {
     throw new ApiError(0, { error: { code: 'NETWORK', message: 'You appear to be offline. Check your connection and try again.' } });
   }
@@ -50,9 +51,26 @@ async function request(method, path, body) {
   return data;
 }
 
+/**
+ * Downloads a file (a request photo, a CSV export) as a File named as the server names it.
+ * A plain <img src> or link cannot send the X-User-Id header, so files are fetched here and
+ * shown or saved from a blob: URL.
+ * shortcut: needed only while "Viewing as" stands in for login; with a session cookie, <img src> works directly.
+ */
+async function blob(url) {
+  const headers = {};
+  const userId = getViewingAs();
+  if (userId) headers['X-User-Id'] = userId;
+  const res = await fetch(url, { headers });
+  if (!res.ok) throw new ApiError(res.status, await res.json().catch(() => null));
+  const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || 'download';
+  return new File([await res.blob()], name, { type: res.headers.get('Content-Type') || '' });
+}
+
 export const api = {
   get: (path) => request('GET', path),
   post: (path, body) => request('POST', path, body ?? {}),
   patch: (path, body) => request('PATCH', path, body),
+  blob,
   delete: (path) => request('DELETE', path),
 };

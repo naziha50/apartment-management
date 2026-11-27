@@ -1,55 +1,398 @@
-/* Minimal styles for Sprint 0. The full layout and components arrive in step 6. */
+/*
+ * Apartment Management — the one stylesheet for every page (UI-02).
+ *
+ * Usability rules built in:
+ *  - colour contrast ≥ 4.5:1 and a visible keyboard focus ring (NFR-12)
+ *  - works from 360 px wide with no sideways scrolling; tables become cards on phones (NFR-10, UI-03)
+ *  - statuses always show text, colour is only extra (UI-06)
+ *  - touch targets at least 44 px; Bangla-capable font stack (NFR-28)
+ *  - animations are switched off for people who ask for reduced motion
+ */
+
+/* ------------------------------------------------------------------ tokens */
 :root {
   --bg: #f6f5f1;
   --surface: #ffffff;
+  --surface-2: #f0efe9;
   --ink: #1b2320;
-  --ink-2: #4a5550;
+  --ink-2: #4a5550;        /* 7.4:1 on white */
   --line: #d9d7cf;
-  --primary: #0d5c55;   /* 7.6:1 contrast on white (NFR-12) */
+  --primary: #0d5c55;      /* 7.6:1 on white */
+  --primary-dark: #0a4a44;
+  --primary-ink: #ffffff;
+  --primary-soft: #e3f0ee;
   --focus: #e0a100;
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Noto Sans Bengali", Arial, sans-serif;
+  --danger: #a61b1b;
+  --danger-soft: #fbe9e9;
+  --warn: #7a4b00;
+  --warn-soft: #fff1d6;
+  --ok: #1f6b2e;
+  --ok-soft: #e4f3e6;
+  --info: #1d4f8f;
+  --info-soft: #e5eefa;
+  --muted-soft: #ecebe6;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 2px rgba(20, 30, 25, 0.06), 0 4px 16px rgba(20, 30, 25, 0.06);
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Noto Sans Bengali", "Hind Siliguri", Arial, sans-serif;
+  --tap: 44px;
+  --content: 1120px;
 }
 
-* { box-sizing: border-box; }
-body { margin: 0; font-family: var(--font); line-height: 1.55; color: var(--ink); background: var(--bg); }
-:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-
-.topbar {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem;
-  padding: 0.6rem 1rem; background: var(--primary); color: #fff;
+/* -------------------------------------------------------------------- base */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 10rem; } /* keeps focused fields clear of the sticky header */
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 1rem;
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--bg);
+  overflow-x: hidden;
 }
-.brand { font-weight: 650; }
-.viewing-as { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; }
+img { max-width: 100%; height: auto; }
+h1, h2, h3 { line-height: 1.25; margin: 0 0 0.5rem; }
+h1 { font-size: 1.6rem; letter-spacing: -0.01em; }
+h2 { font-size: 1.2rem; }
+h3 { font-size: 1.05rem; }
+p { margin: 0 0 0.75rem; }
+a { color: var(--primary); text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+[hidden] { display: none !important; }
+
+.muted { color: var(--ink-2); }
+.small { font-size: 0.875rem; }
+
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+/* <main> only receives focus from the skip link or after an action redraws the page; it is not a control */
+main[tabindex="-1"]:focus { outline: none; }
+
+.skip-link {
+  position: absolute; left: 0.5rem; top: -3rem; z-index: 100;
+  background: var(--ink); color: #fff; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm);
+}
+.skip-link:focus { top: 0.5rem; }
+
+/* ------------------------------------------------------------------ header */
+/* The header is filled in by layout.js after the page first paints. Reserving its height
+   (60px top bar + 49px menu) stops the whole page jumping down when it appears. */
+.site-header { position: sticky; top: 0; z-index: 20; min-height: 109px; }
+.topbar { background: var(--primary); color: var(--primary-ink); }
+.topbar__inner {
+  max-width: var(--content); margin: 0 auto; padding: 0 1rem;
+  display: flex; align-items: center; gap: 0.5rem; min-height: 60px;
+}
+.brand {
+  display: flex; align-items: center; gap: 0.6rem; margin-right: auto; min-width: 0;
+  color: inherit; text-decoration: none; font-weight: 650;
+}
+.brand__mark {
+  flex: none; width: 32px; height: 32px; border-radius: 8px;
+  display: grid; place-items: center; background: rgba(255, 255, 255, 0.16);
+}
+.brand__mark svg { width: 20px; height: 20px; }
+.brand__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.icon-btn {
+  display: inline-grid; place-items: center; min-width: var(--tap); min-height: var(--tap);
+  padding: 0 0.5rem; border: 0; border-radius: var(--radius-sm);
+  background: transparent; color: inherit; font: inherit; cursor: pointer;
+}
+.icon-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.icon-btn svg { width: 22px; height: 22px; }
+
+/* "Viewing as" — development stand-in for login */
+.viewing-as { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; white-space: nowrap; }
 .viewing-as select {
-  min-height: 40px; max-width: 60vw; padding: 0 0.5rem; font: inherit;
-  border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink);
+  min-height: 40px; max-width: 46vw; padding: 0 0.5rem;
+  font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+}
+@media (max-width: 480px) {
+  .viewing-as__label { display: none; } /* the select keeps its accessible name */
 }
 
-.page { max-width: 1120px; margin: 0 auto; padding: 1.5rem 1rem; }
-.notice { background: #fff1d6; border: 1px solid #ebcf95; border-radius: 8px; padding: 0.75rem 1rem; }
-a.brand { color: #fff; text-decoration: none; }
+/* Main navigation */
+.mainnav { background: var(--surface); border-bottom: 1px solid var(--line); }
+.mainnav ul {
+  list-style: none; margin: 0 auto; padding: 0 1rem; max-width: var(--content);
+  display: flex; gap: 0.25rem; overflow-x: auto;
+}
+.mainnav a {
+  display: flex; align-items: center; min-height: 48px; padding: 0 0.85rem;
+  color: var(--ink-2); text-decoration: none; font-weight: 500; white-space: nowrap;
+  border-bottom: 3px solid transparent;
+}
+.mainnav a:hover { color: var(--ink); }
+.mainnav a[aria-current="page"] { color: var(--primary); border-bottom-color: var(--primary); font-weight: 650; }
+.nav-toggle { display: none; }
 
-/* Forms */
-.form { display: grid; gap: 0.75rem; max-width: 420px; }
-.form label { display: grid; gap: 0.25rem; font-weight: 600; }
-input, select, button { min-height: 40px; padding: 0 0.5rem; font: inherit; border: 1px solid var(--line); border-radius: 6px; }
-button { background: var(--primary); color: #fff; border-color: var(--primary); cursor: pointer; }
-button:disabled { opacity: 0.6; cursor: default; }
-.field-error { color: #a4161a; font-weight: 400; font-size: 0.9rem; }
+@media (max-width: 720px) {
+  .site-header { min-height: 60px; } /* menu folds into the button: top bar only */
+  .nav-toggle { display: inline-grid; }
+  .mainnav { display: none; }
+  .mainnav.is-open { display: block; }
+  .mainnav ul { flex-direction: column; padding: 0.25rem 0.5rem; }
+  .mainnav a { border-bottom: 0; border-left: 3px solid transparent; }
+  .mainnav a[aria-current="page"] { border-left-color: var(--primary); background: var(--primary-soft); }
+}
 
-/* Tables */
+/* ------------------------------------------------------------------ layout */
+.page { max-width: var(--content); margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+.page > * + * { margin-top: 1rem; }
+.page-head {
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+  gap: 0.75rem 1rem; margin-bottom: 1.25rem;
+}
+.page-head p { margin: 0; }
+.page > .page-head + * { margin-top: 0; }
+.grid { display: grid; gap: 1rem; }
+.grid-2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
+.row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.25rem; }
+.card--flush { padding: 0; overflow: hidden; }
+
+.callout { border-radius: var(--radius); padding: 0.85rem 1rem; border: 1px solid var(--line); background: var(--surface-2); }
+.callout--info { background: var(--info-soft); border-color: #bcd0ee; }
+.callout--warn { background: var(--warn-soft); border-color: #ebcf95; }
+
+/* ----------------------------------------------------------------- buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+  min-height: var(--tap); padding: 0 1.1rem; border: 1px solid transparent; border-radius: var(--radius-sm);
+  font: inherit; font-weight: 600; text-decoration: none; cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, transform 0.05s;
+}
+.btn:active { transform: translateY(1px); }
+.btn[disabled] { opacity: 0.55; cursor: not-allowed; }
+.btn-primary { background: var(--primary); color: var(--primary-ink); }
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-secondary { background: var(--surface); color: var(--ink); border-color: var(--line); }
+.btn-secondary:hover { border-color: var(--ink-2); }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { background: #861414; }
+.spinner {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent; animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ------------------------------------------------------------------- forms */
+.form { display: grid; gap: 1rem; }
+.field { display: grid; gap: 0.35rem; }
+.field label, .field legend { font-weight: 600; }
+.field .hint { margin: 0; color: var(--ink-2); font-size: 0.875rem; }
+.req { color: var(--danger); }
+input[type="text"], input[type="search"], input[type="date"], input[type="number"], select, textarea {
+  width: 100%; min-height: var(--tap); padding: 0.55rem 0.75rem;
+  font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid #a9a69c; border-radius: var(--radius-sm);
+}
+textarea { min-height: 120px; resize: vertical; }
+/* The browser date picker is a few pixels taller than a select; keep filter rows level. */
+input[type="date"] { height: var(--tap); }
+input:hover, select:hover, textarea:hover { border-color: var(--ink-2); }
+[aria-invalid="true"] { border-color: var(--danger) !important; background: #fffafa; }
+fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.choice-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.choice {
+  display: inline-flex; align-items: center; gap: 0.5rem; min-height: var(--tap); padding: 0 0.9rem;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); cursor: pointer;
+}
+.choice:has(input:checked) { border-color: var(--primary); background: var(--primary-soft); font-weight: 600; }
+.choice input { width: 18px; height: 18px; accent-color: var(--primary); }
+.form-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+/* Errors appear next to the field (UI-04) and never rely on colour alone */
+.field-error { display: flex; gap: 0.35rem; margin: 0; color: var(--danger); font-size: 0.9rem; font-weight: 500; }
+.field-error::before { content: "⚠"; }
+.form-alert {
+  padding: 0.75rem 1rem; border: 1px solid #e7b4b4; border-radius: var(--radius-sm);
+  background: var(--danger-soft); color: var(--danger); font-weight: 500;
+}
+
+/* ------------------------------------------- status & priority badges (UI-06) */
+.badge {
+  display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.15rem 0.6rem;
+  border: 1px solid transparent; border-radius: 999px; font-size: 0.82rem; font-weight: 650; white-space: nowrap;
+}
+.badge::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.status-submitted    { background: var(--info-soft); color: var(--info); }
+.status-under_review { background: #efe7fb; color: #5b2d97; }
+.status-in_progress  { background: var(--warn-soft); color: var(--warn); }
+.status-resolved     { background: var(--ok-soft); color: var(--ok); }
+.status-closed       { background: var(--muted-soft); color: #3f4542; }
+.status-rejected     { background: var(--danger-soft); color: var(--danger); }
+.status-cancelled    { background: var(--muted-soft); color: #5b605d; }
+.prio-high   { background: var(--danger-soft); color: var(--danger); }
+.prio-medium { background: var(--warn-soft); color: var(--warn); }
+.prio-low    { background: var(--muted-soft); color: #3f4542; }
+.prio-unset  { background: transparent; color: var(--ink-2); border-color: var(--line); }
+.prio-unset::before { display: none; }
+.badge-overdue { background: var(--danger); color: #fff; }
+.badge + .badge { margin-left: 0.35rem; }
+
+/* ------------------------------------------- tables → stacked cards on phones */
 .table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; background: var(--surface); }
-th, td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--line); }
+table.data { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+table.data th, table.data td { padding: 0.75rem 0.9rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+table.data th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-2); background: var(--surface-2); }
+table.data tbody tr:hover { background: #fafaf7; }
+
+@media (max-width: 720px) {
+  table.data thead { display: none; }
+  table.data, table.data tbody, table.data tr, table.data td { display: block; width: 100%; }
+  table.data tr { padding: 0.75rem 1rem; border-bottom: 1px solid var(--line); }
+  table.data td { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.2rem 0; border: 0; }
+  table.data td::before { content: attr(data-label); flex: none; color: var(--ink-2); font-size: 0.85rem; }
+  table.data td.cell-title { display: block; margin-bottom: 0.25rem; font-size: 1.02rem; }
+  table.data td.cell-title::before { display: none; }
+}
+
+/* ------------------------------------------------------ empty / error / toast */
+.empty { padding: 2.5rem 1rem; text-align: center; color: var(--ink-2); }
+.empty strong { display: block; margin-bottom: 0.25rem; color: var(--ink); font-size: 1.05rem; }
+
+.toast-region {
+  position: fixed; left: 50%; bottom: 1rem; z-index: 60; transform: translateX(-50%);
+  display: grid; gap: 0.5rem; width: min(440px, calc(100vw - 2rem));
+}
+.toast { padding: 0.8rem 1rem; border-radius: var(--radius); background: var(--ink); color: #fff; font-weight: 500; box-shadow: var(--shadow); }
+.toast--ok { background: var(--ok); }
+.toast--error { background: var(--danger); }
+
+/* ------------------------------------------------------- request detail */
+.back-link { display: inline-block; color: var(--ink-2); font-weight: 500; }
+.prewrap { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+.details { display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1rem; margin: 0; }
+.details dt { color: var(--ink-2); }
+.details dd { margin: 0; overflow-wrap: anywhere; }
+/* History (FR-20): a vertical line with one dot per entry */
+.timeline { list-style: none; margin: 0; padding: 0 0 0 1.25rem; border-left: 2px solid var(--line); display: grid; gap: 1rem; }
+.timeline__item { position: relative; }
+.timeline__item::before {
+  content: ""; position: absolute; left: calc(-1.25rem - 6px); top: 0.4rem;
+  width: 10px; height: 10px; border-radius: 50%; background: var(--primary);
+}
+.timeline__item--internal::before { background: var(--warn); }
+.timeline__note { margin: 0.25rem 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.timeline__photos { margin: 0.4rem 0; } /* BR-19: photos added with a note */
+
+/* Notifications (FR-25): bell with unread count, and the list */
+.bell { position: relative; }
+.bell__count {
+  position: absolute; top: 4px; right: 2px; min-width: 18px; height: 18px; padding: 0 4px;
+  display: grid; place-items: center; border-radius: 999px;
+  background: var(--surface); color: var(--primary); font-size: 0.7rem; font-weight: 700; line-height: 1;
+}
+.notices { list-style: none; margin: 0; padding: 0; }
+.notice {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.25rem 1rem;
+  padding: 0.6rem 1.25rem; border-bottom: 1px solid var(--line);
+}
+.notice a { display: flex; align-items: baseline; gap: 0.5rem; min-height: var(--tap); padding: 0.4rem 0; color: var(--ink); text-decoration: none; }
+.notice a:hover .notice__text { text-decoration: underline; }
+.notice--unread { background: var(--primary-soft); }
+.notice--unread .notice__text { font-weight: 600; }
+.notice__new {
+  flex: none; padding: 0 0.45rem; border: 1px solid var(--primary); border-radius: 999px;
+  color: var(--primary); font-size: 0.75rem; font-weight: 700;
+}
+
+/* Rating stars (FR-50): decorative; the words next to them carry the meaning */
+.stars { color: var(--warn); letter-spacing: 0.1em; }
+
+/* Photo thumbnails (BR-19), on the form preview and the request page */
+.photos { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.photos:empty { display: none; }
+.photos img, .photos a { display: block; width: 104px; height: 104px; border-radius: var(--radius-sm); }
+.photos img { object-fit: cover; border: 1px solid var(--line); background: var(--surface-2); }
+input[type="file"] { min-height: var(--tap); font: inherit; max-width: 100%; }
+
+/* Actions on a request (FR-18, FR-20): one disclosure per allowed move */
+.actions { display: grid; gap: 0.5rem; }
+.action { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+.action > summary {
+  display: flex; align-items: center; min-height: var(--tap); padding: 0 1rem;
+  font-weight: 600; cursor: pointer; list-style: none;
+}
+.action > summary::-webkit-details-marker { display: none; }
+.action > summary::after { content: "▸" / ""; margin-left: auto; color: var(--ink-2); }
+.action[open] > summary::after { content: "▾" / ""; } /* decorative: empty alt text */
+.action[open] > summary { border-bottom: 1px solid var(--line); }
+.action > form { padding: 1rem; }
+
+/* List filters and paging (FR-22, UI-07) */
+.filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 0.75rem; align-items: end; }
+.filters .field { gap: 0.25rem; }
+.filters .form-actions { align-self: end; }
+.list-summary { margin: 0; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--line); }
+.pagination { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.75rem 1.25rem; border-top: 1px solid var(--line); }
+
+/* Overview tiles (FR-29): each one is a link to the matching filtered list */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 0.75rem; }
+.stat {
+  display: grid; gap: 0.35rem; align-content: start; padding: 1rem; min-height: var(--tap);
+  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface);
+  color: var(--ink); text-decoration: none;
+}
+.stat:hover { border-color: var(--primary); background: var(--primary-soft); }
+.stat__value { font-size: 2rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.stat__label { color: var(--ink-2); font-size: 0.9rem; }
+.stat--alert { border-color: #e7b4b4; }
+.stat--alert .stat__value { color: var(--danger); }
+
+/* ---------------------------------------------------------- accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+@media print {
+  .site-header, .toast-region { display: none !important; }
+  body { background: #fff; }
+}
+
+/* ------------------------------------------- maintenance report (FR-22) */
+.stack > * + * { margin-top: 1rem; }
+.report-card h2 { margin: 0; padding: 1rem 1.25rem 0.75rem; }
+.report-note { margin: 0; padding: 0.75rem 1.25rem 1rem; }
+/* Read by screen readers, not shown (table captions). */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ------------------------------------------- scheduled tasks (FR-49) */
+.field--inline { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+.field--inline select { width: auto; }
+/* Fields keep their own height instead of stretching to the tallest one in the row. */
+.task-form { align-items: start; }
+
+/* ------------------------------------------- overview groups (FR-29) */
+.stats-title { margin: 1rem 0 0.5rem; font-size: 1rem; color: var(--ink-2); }
+.stats-title:first-of-type { margin-top: 0.25rem; }
+
+/* ------------------------------------------- Billing and dashboard pages */
+/* Only used on pages with <body class="billing-page">, so they never change the maintenance pages. */
+.billing-page .form { max-width: 420px; gap: 0.75rem; }
+.billing-page .form label { display: grid; gap: 0.25rem; font-weight: 600; }
+.billing-page input, .billing-page select, .billing-page button {
+  min-height: 40px; padding: 0 0.5rem; font: inherit; border: 1px solid var(--line); border-radius: 6px;
+}
+.billing-page button { background: var(--primary); color: #fff; border-color: var(--primary); cursor: pointer; }
+.billing-page button:disabled { opacity: 0.6; cursor: default; }
+.billing-page table { width: 100%; border-collapse: collapse; background: var(--surface); }
+.billing-page th, .billing-page td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--line); }
 .pay-controls { display: flex; gap: 0.5rem; }
 
 /* Bill status */
-.badge { padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600; }
-.badge-paid { background: #d8f0e0; color: #1d5c34; }
-.badge-unpaid { background: #eceae4; color: var(--ink-2); }
-.badge-overdue { background: #fbdcdc; color: #a4161a; }
+.billing-page .badge::before { content: none; }
+.billing-page .badge { padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600; }
+.billing-page .badge-paid { background: #d8f0e0; color: #1d5c34; }
+.billing-page .badge-unpaid { background: #eceae4; color: var(--ink-2); }
+.billing-page .badge-overdue { background: #fbdcdc; color: #a4161a; }
 
-/* Billing */
 .owe { font-size: 1.25rem; font-weight: 650; }
 .filter { display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; font-weight: 600; }
 .details { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1.5rem; margin: 1rem 0; }
@@ -58,6 +401,6 @@ th, td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var
 .receipt { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.5rem; max-width: 560px; }
 
 @media print {
-  .topbar, .no-print { display: none; }
+  .site-header, .topbar, .no-print { display: none; }
   body { background: #fff; }
 }

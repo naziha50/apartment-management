@@ -5,11 +5,12 @@
  */
 const express = require('express');
 const users = require('./users.repository');
-const { requireUser } = require('../../middleware/current-user');
+const { requireUser, devStandInEnabled } = require('../../middleware/current-user');
 
 const router = express.Router();
 
-router.get('/dev/users', async (req, res) => {
+router.get('/dev/users', async (req, res, next) => {
+  if (!devStandInEnabled) return next(); // the user list (with emails) is a development aid only
   const list = await users.listActive();
   res.json({ items: list.map(({ id, fullName, role, email }) => ({ id, fullName, role, email })) });
 });
