@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Add apartments, assign residents and record move-outs.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <title>Apartments · Green Valley Apartments</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <script src="/vendor/motion.js" defer></script>
+  <script type="module" src="/js/pages/apartments.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header" id="site-header"></header>
+
+  <main class="page" id="main" tabindex="-1">
+    <div class="page-head">
+      <div>
+        <h1>Apartments</h1>
+        <p class="muted">Add apartments, assign residents and record move-outs. Past stays are kept.</p>
+      </div>
+    </div>
+
+    <!-- Add an apartment, assign, move out or history. Filled in by apartments.js. -->
+    <section class="card" id="panel" aria-labelledby="panel-title"></section>
+
+    <section class="card card--flush" id="content" aria-live="polite">
+      <p class="muted empty">Loading…</p>
+    </section>
+  </main>
+</body>
+</html>

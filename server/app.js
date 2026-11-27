@@ -18,6 +18,7 @@ const usersRoutes = require('./modules/users/users.routes');
 const maintenanceRoutes = require('./modules/maintenance/maintenance.routes');
 const notificationsRoutes = require('./modules/notifications/notifications.routes');
 const residentsRoutes = require('./modules/residents/residents.routes');
+const unitsRoutes = require('./modules/units/units.routes');
 
 const ROOT = path.join(__dirname, '..');
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -53,6 +54,7 @@ function createApp() {
   api.use('/maintenance', maintenanceRoutes);
   api.use('/notifications', notificationsRoutes);
   api.use('/residents', residentsRoutes);
+  api.use('/units', unitsRoutes);
 
   api.use(apiNotFound);
   app.use('/api/v1', api);
