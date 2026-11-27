@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard · Apartment Management</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <script type="module" src="/js/dashboard.js"></script>
+</head>
+<body class="billing-page">
+  <header class="site-header" id="site-header"></header>
+
+  <main class="page">
+    <h1>Administrative dashboard</h1>
+    <p id="message" aria-live="polite"></p>
+
+    <div id="dashboard" hidden>
+      <p class="quick-links">
+        <a href="/bills.html">Bills</a>
+        <a href="/report.html">Billing report</a>
+      </p>
+
+      <!-- FR-30: search -->
+      <section>
+        <h2>Search</h2>
+        <form id="search-form" class="search-form">
+          <input id="search-input" type="search" placeholder="Resident, unit, bill or request" aria-label="Search">
+          <button type="submit">Search</button>
+        </form>
+        <p id="search-message" aria-live="polite"></p>
+        <div id="search-results"></div>
+      </section>
+
+      <!-- FR-27: units and residents -->
+      <section>
+        <h2>Building</h2>
+        <div class="cards" id="occupancy-cards"></div>
+      </section>
+
+      <!-- FR-28: billing -->
+      <section>
+        <h2>Billing</h2>
+        <div class="cards" id="billing-cards"></div>
+      </section>
+
+      <!-- FR-29: maintenance -->
+      <section>
+        <h2>Maintenance requests</h2>
+        <p id="maintenance-note"></p>
+        <div class="cards" id="maintenance-cards"></div>
+      </section>
+
+      <!-- FR-30: recent activity -->
+      <section>
+        <h2>Recent activity</h2>
+        <ul id="activity-list" class="activity"></ul>
+        <p id="announcements-note"></p>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

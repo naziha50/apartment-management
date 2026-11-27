@@ -15,6 +15,8 @@ const { loadCurrentUser } = require('./middleware/current-user');
 const { errorHandler, apiNotFound } = require('./middleware/error-handler');
 const { securityHeaders, noStore } = require('./middleware/security');
 const usersRoutes = require('./modules/users/users.routes');
+const billingRoutes = require('./modules/billing/billing.routes');
+const dashboardRoutes = require('./modules/dashboard/dashboard.routes');
 const maintenanceRoutes = require('./modules/maintenance/maintenance.routes');
 const notificationsRoutes = require('./modules/notifications/notifications.routes');
 
@@ -49,6 +51,8 @@ function createApp() {
     }
   });
   api.use(usersRoutes);
+  api.use(billingRoutes);
+  api.use(dashboardRoutes);
   api.use('/maintenance', maintenanceRoutes);
   api.use('/notifications', notificationsRoutes);
 

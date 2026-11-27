@@ -72,4 +72,5 @@ export const api = {
   post: (path, body) => request('POST', path, body ?? {}),
   patch: (path, body) => request('PATCH', path, body),
   blob,
+  delete: (path) => request('DELETE', path),
 };

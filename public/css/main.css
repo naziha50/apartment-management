@@ -372,3 +372,35 @@ input[type="file"] { min-height: var(--tap); font: inherit; max-width: 100%; }
 /* ------------------------------------------- overview groups (FR-29) */
 .stats-title { margin: 1rem 0 0.5rem; font-size: 1rem; color: var(--ink-2); }
 .stats-title:first-of-type { margin-top: 0.25rem; }
+
+/* ------------------------------------------- Billing and dashboard pages */
+/* Only used on pages with <body class="billing-page">, so they never change the maintenance pages. */
+.billing-page .form { max-width: 420px; gap: 0.75rem; }
+.billing-page .form label { display: grid; gap: 0.25rem; font-weight: 600; }
+.billing-page input, .billing-page select, .billing-page button {
+  min-height: 40px; padding: 0 0.5rem; font: inherit; border: 1px solid var(--line); border-radius: 6px;
+}
+.billing-page button { background: var(--primary); color: #fff; border-color: var(--primary); cursor: pointer; }
+.billing-page button:disabled { opacity: 0.6; cursor: default; }
+.billing-page table { width: 100%; border-collapse: collapse; background: var(--surface); }
+.billing-page th, .billing-page td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--line); }
+.pay-controls { display: flex; gap: 0.5rem; }
+
+/* Bill status */
+.billing-page .badge::before { content: none; }
+.billing-page .badge { padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600; }
+.billing-page .badge-paid { background: #d8f0e0; color: #1d5c34; }
+.billing-page .badge-unpaid { background: #eceae4; color: var(--ink-2); }
+.billing-page .badge-overdue { background: #fbdcdc; color: #a4161a; }
+
+.owe { font-size: 1.25rem; font-weight: 650; }
+.filter { display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; font-weight: 600; }
+.details { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1.5rem; margin: 1rem 0; }
+.details dt { font-weight: 600; }
+.details dd { margin: 0; }
+.receipt { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.5rem; max-width: 560px; }
+
+@media print {
+  .site-header, .topbar, .no-print { display: none; }
+  body { background: #fff; }
+}

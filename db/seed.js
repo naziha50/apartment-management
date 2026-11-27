@@ -40,6 +40,18 @@ const OCCUPANCIES = [
   ['resident3@example.com', '2B', 'owner'],
 ];
 
+// unit, bill type, month (1st day), due date, charges [type, description, amount], payments [amount, method, paid on]
+const BILLS = [
+  ['1A', 'service_charge', '2026-10-01', '2026-10-10', [['service_charge', 'Service charge', 3000]], [[3000, 'bkash', '2026-10-05']]],
+  ['2A', 'service_charge', '2026-10-01', '2026-10-10', [['service_charge', 'Service charge', 3000]], [[3000, 'cash', '2026-10-09']]],
+  ['2B', 'service_charge', '2026-10-01', '2026-10-10', [['service_charge', 'Service charge', 2500]], []], // overdue
+  // Two charges (service charge + water), paid in two parts: 3000 of 3500 paid.
+  ['1A', 'service_charge', '2026-11-01', '2026-12-05', [['service_charge', 'Service charge', 3000], ['utility', 'Water bill', 500]], [[2000, 'cash', '2026-11-03'], [1000, 'bkash', '2026-11-20']]],
+  ['3B', 'service_charge', '2026-11-01', '2026-11-10', [['service_charge', 'Service charge', 2500]], []], // overdue
+  ['1A', 'service_charge', '2026-12-01', '2026-12-10', [['service_charge', 'Service charge', 3000]], []],
+  ['3B', 'service_charge', '2026-12-01', '2026-12-10', [['service_charge', 'Service charge', 2500]], []],
+];
+
 async function seed({ databaseUrl, log = console.log } = {}) {
   const client = new Client({ connectionString: databaseUrl || require('../server/config').databaseUrl });
   await client.connect();
@@ -88,8 +100,33 @@ async function seed({ databaseUrl, log = console.log } = {}) {
       );
     }
 
+    const adminId = userIds['admin@example.com'];
+    for (const [unitNumber, billType, billMonth, dueDate, charges, payments] of BILLS) {
+      // Skip bills that already exist (same unit, type and month), so seeding twice adds nothing.
+      const { rows } = await client.query(
+        `INSERT INTO bills (unit_id, bill_type, bill_month, due_date, created_by)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (unit_id, bill_type, bill_month) DO NOTHING
+         RETURNING id`,
+        [unitIds[unitNumber], billType, billMonth, dueDate, adminId],
+      );
+      if (!rows[0]) continue;
+      for (const [chargeType, description, amount] of charges) {
+        await client.query(
+          'INSERT INTO bill_charges (bill_id, charge_type, description, amount) VALUES ($1, $2, $3, $4)',
+          [rows[0].id, chargeType, description, amount],
+        );
+      }
+      for (const [amount, method, paidOn] of payments) {
+        await client.query(
+          'INSERT INTO payments (bill_id, amount, method, paid_on, recorded_by) VALUES ($1, $2, $3, $4, $5)',
+          [rows[0].id, amount, method, paidOn, adminId],
+        );
+      }
+    }
+
     await client.query('COMMIT');
-    log(`Seeded ${USERS.length} users, ${UNITS.length} units and ${OCCUPANCIES.length} occupancies.`);
+    log(`Seeded ${USERS.length} users, ${UNITS.length} units, ${OCCUPANCIES.length} occupancies and ${BILLS.length} bills.`);
     return { userIds, unitIds };
   } catch (err) {
     await client.query('ROLLBACK');
