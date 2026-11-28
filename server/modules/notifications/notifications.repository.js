@@ -28,7 +28,7 @@ async function officeUserIds(client, buildingId) {
 async function listForUser(userId, { limit, offset }) {
   const [page, counts] = await Promise.all([
     db.query(
-      `SELECT id, request_id, message, read_at, created_at FROM notifications
+      `SELECT id, request_id, announcement_id, message, read_at, created_at FROM notifications
         WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`,
       [userId, limit, offset],
     ),

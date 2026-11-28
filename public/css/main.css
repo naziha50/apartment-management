@@ -405,3 +405,8 @@ input[type="file"] { min-height: var(--tap); font: inherit; max-width: 100%; }
   .site-header, .topbar, .no-print { display: none; }
   body { background: #fff; }
 }
+
+/* Announcements keep the line breaks the admin typed. */
+.announcement-body { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+article h2 { overflow-wrap: anywhere; }
+article h2 .notice__new { margin-left: 0.5rem; }

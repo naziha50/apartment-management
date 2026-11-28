@@ -19,6 +19,7 @@ const billingRoutes = require('./modules/billing/billing.routes');
 const dashboardRoutes = require('./modules/dashboard/dashboard.routes');
 const maintenanceRoutes = require('./modules/maintenance/maintenance.routes');
 const notificationsRoutes = require('./modules/notifications/notifications.routes');
+const announcementsRoutes = require('./modules/announcements/announcements.routes');
 const residentsRoutes = require('./modules/residents/residents.routes');
 const unitsRoutes = require('./modules/units/units.routes');
 
@@ -57,6 +58,7 @@ function createApp() {
   api.use(dashboardRoutes);
   api.use('/maintenance', maintenanceRoutes);
   api.use('/notifications', notificationsRoutes);
+  api.use('/announcements', announcementsRoutes);
   api.use('/residents', residentsRoutes);
   api.use('/units', unitsRoutes);
 
