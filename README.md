@@ -18,7 +18,7 @@ CSE451 – Software Engineering project, built in sprints from the
 2. [What is built so far](#2-what-is-built-so-far)
 3. [Run it: step-by-step guide](#3-run-it-step-by-step-guide)
 4. [Try it: a guided walkthrough](#4-try-it-a-guided-walkthrough)
-5. [Who am I? ("Viewing as")](#5-who-am-i-viewing-as--no-login-yet)
+5. [Logging in](#5-logging-in)
 6. [Maintenance rules](#6-maintenance-rules)
 7. [API reference](#7-api-reference)
 8. [Database and migrations](#8-database-and-migrations)
@@ -131,7 +131,6 @@ New modules (billing, announcements, …) will follow the same pattern next to `
 
 Every maintenance requirement is built. These related items belong to other modules and are not part of this work:
 
-- **Login and real permissions** (FR-01, FR-02, FR-31, users module): "Viewing as" stands in for login (§5).
 - **Changing the BR-17 deadline hours in settings** (settings module): they are fixed in `maintenance.constants.js`.
 - **Activity log** of status changes and assignments (FR-34, dashboard module).
 - **Bangla interface, install on phone, larger text** (FR-47, FR-48, FR-55, general).
@@ -200,7 +199,7 @@ npm start             # or: npm run dev  (restarts by itself when a file changes
 Check it: open <http://localhost:3000/api/v1/health>. It should show
 `{"status":"ok","database":"connected"}`.
 
-Then open **<http://localhost:3000>** and choose a person in the **Viewing as** menu at the top.
+Then open **<http://localhost:3000>** and log in as one of the demo users (§5).
 
 ### 3.6 Stop the server
 
@@ -218,6 +217,7 @@ database pool are closed and the server exits.
 | `npm run db:migrate` | Applies new migrations |
 | `npm run db:seed` | Adds the demo data |
 | `npm run db:reset` | **Deletes all data** and rebuilds every table (development only). Run `db:seed` after it |
+| `npm run user:password -- <email> <password>` | Sets or resets a user's password (FR-01) |
 | `npm run db:backup` | Saves a backup of the database to `backups/` (NFR-09). Restore with `psql "<DATABASE_URL>" -f backups/<file>.sql` |
 | `npm run check:speed` | Times the common pages and actions and checks each answers within 3 seconds (NFR-10, NFR-11) |
 | `npm run lint` | Checks the JavaScript with ESLint and the CSS with Stylelint (coding standards) |
@@ -253,17 +253,17 @@ Units 1B and 3A are empty.
 
 Follow one request through its whole life:
 
-1. **Tanvir reports a problem.** Viewing as *Tanvir* → **Report a problem**. Fill in the title,
+1. **Tanvir reports a problem.** Log in as *Tanvir* → **Report a problem**. Fill in the title,
    description and category, and add a photo if you like. The request appears in **My
    requests** as *Submitted* with a number like `MR-2026-00001`.
-2. **The office sees it.** Viewing as *Building Admin*, the bell shows a new notification and
+2. **The office sees it.** Log in as *Building Admin*, the bell shows a new notification and
    the home page counts one *Submitted* request. Open it from **Manage requests**.
 3. **Review and assign.** Click **Start review**, choose a priority, then **Assign** it to
    *Jamal Hossain*. Jamal gets a notification.
-4. **Work on it.** Viewing as *Jamal*: open the request, **Start work** (→ *In progress*), add
+4. **Work on it.** Log in as *Jamal*: open the request, **Start work** (→ *In progress*), add
    a progress note with a photo, and add an *internal* note. Then **Mark as resolved** with a
    resolution note.
-5. **Tanvir checks it.** Viewing as *Tanvir*: he sees the public note and its photo but not
+5. **Tanvir checks it.** Log in as *Tanvir*: he sees the public note and its photo but not
    the internal note. He can choose **Yes, it is fixed** (→ *Closed*) or **It is not fixed**
    to reopen it with a comment. If he does nothing, it closes by itself after 7 days.
 6. **Rate it.** After closing, Tanvir can give 1–5 stars and a comment, once.
@@ -279,20 +279,29 @@ pages work at phone width.
 
 ---
 
-## 5. Who am I? ("Viewing as") — no login yet
+## 5. Logging in
 
-Login and passwords (SRS FR-01, FR-02, FR-31) are not built yet; this phase focuses on the
-maintenance module. To act as different people, every page has a **Viewing as** menu
-listing the demo users. The chosen user's id is sent with every API call in the `X-User-Id`
-header, and `server/middleware/current-user.js` turns it into `req.user`.
+Every page needs a login (FR-01, NFR-03). Open any page and the login page appears; after
+logging in you go back to the page you wanted. The header shows your name and a **Log out** button.
 
-⚠ This is a **development stand-in, not security**: anyone can pick any user. Everything else
-only reads `req.user`, so adding real login later means replacing that one middleware.
+- **Demo accounts:** every demo user in §4 logs in with their email (or phone, e.g. `01711000011`)
+  and the password `demo1234`, set by `npm run db:seed`. Demo data only: never on a live server.
+- **New users** (for example a resident the admin just added) have no password until one is set:
+  `npm run user:password -- <email or phone> <new password>` (at least 8 characters).
+- **Passwords** are stored only as a salted scrypt hash (`server/lib/passwords.js`, NFR-01).
+- **Sessions:** logging in sets an `am_session` cookie (HttpOnly, SameSite=Lax, and Secure on a
+  live server). Only a SHA-256 hash of it is stored, in the `sessions` table. A session ends at
+  **Log out**, or after **30 minutes** without a request (`SESSION_IDLE_MINUTES` in `.env`, NFR-03).
+  A deactivated user cannot log in, and their open sessions stop working.
+- **Tests:** API tests can still act as a user by sending the `X-User-Id` header. The server
+  ignores it when `NODE_ENV=production`, so on a live server only a real login counts.
 
-| Endpoint | Returns |
+| Endpoint | What it does |
 |---|---|
-| `GET /api/v1/dev/users` | Everyone you can "view as" |
-| `GET /api/v1/me` | The user you are viewing as (401 if none is chosen) |
+| `POST /api/v1/auth/login` | `{ login, password }`: sets the session cookie and returns the user (401 if wrong) |
+| `POST /api/v1/auth/logout` | Ends the session and deletes the cookie |
+| `GET /api/v1/me` | The logged-in user (401 if nobody is logged in) |
+| `GET /api/v1/dev/users` | Demo users (development only) |
 
 ---
 
@@ -356,8 +365,8 @@ tab. A short message (also read out by screen readers) says when something new a
 
 ## 7. API reference
 
-All endpoints are under `/api/v1` and need a "Viewing as" user (`X-User-Id` header), except
-`/health` and `/dev/users`. Times are sent as ISO text with their offset, e.g. `2026-11-16T08:28:00.000+06:00`;
+All endpoints are under `/api/v1` and need a logged-in user (the session cookie, §5), except
+`/health`, `/auth/login` and `/dev/users`. Times are sent as ISO text with their offset, e.g. `2026-11-16T08:28:00.000+06:00`;
 calendar days (due dates, filter dates) as `YYYY-MM-DD`. Errors always look like
 `{ "error": { "code": "...", "message": "...", "fields": { ... } } }`.
 
@@ -390,7 +399,7 @@ Categories: `plumbing`, `electrical`, `lift`, `generator`, `water_supply`, `gas`
 
 ### Notifications (`/api/v1/notifications`)
 
-Always for the "Viewing as" user only.
+Always for the logged-in user only.
 
 | Method & path | What it does |
 |---|---|
@@ -474,8 +483,8 @@ Current result: **42 tests, all passing**, whatever time zone the computer itsel
 - Plain HTML, CSS and JavaScript modules; no build step.
 - One stylesheet, `public/css/main.css`, with colour tokens and reusable parts (buttons, cards,
   forms, status badges, tables that become cards on phones).
-- Every page gets the same frame from `public/js/layout.js`: top bar with the bell, "Viewing as"
-  menu, and navigation that shows only the links for the current role.
+- Every page gets the same frame from `public/js/layout.js`: top bar with the bell, the user's name
+  and **Log out**, and navigation that shows only the links for the current role.
 - User data is inserted only with `el()` / `textContent` from `public/js/dom.js`, never
   `innerHTML` (NFR-05).
 - No inline `<script>` or `style=""`: the security policy only allows files from this server.
@@ -503,8 +512,9 @@ server/
   lib/validate.js   input checking that reports every field problem at once
   lib/csv.js        CSV files for spreadsheets (FR-38)
   lib/dates.js      days and times in the app's time zone: today, adding days, ISO times
-  middleware/       current-user.js ("Viewing as" → req.user), error-handler.js, security.js (headers)
+  middleware/       current-user.js (session cookie → req.user), error-handler.js, security.js (headers)
   modules/          one folder per module
+    auth/             login, logout and sessions (FR-01)
     users/            lists users and answers /me
     maintenance/      routes → service → repository
                       state-machine.js            who may do what (pure functions)
@@ -528,7 +538,6 @@ public/
   js/layout.js                shared page frame and the notification bell
   js/photos.js                photo checks, previews and photo fields
   js/ui.js                    animations, toasts, form errors, paging, empty and error states
-  js/viewing-as.js            the "Viewing as" menu
   js/pages/                   one script per page
 db/
   create-db.js   migrate.js   seed.js
@@ -598,7 +607,7 @@ Not planned in detail yet. In SRS priority order (Must first):
 2. **Users & residents:** real login with hashed passwords and lockout, sessions, password
    change and reset (FR-01, FR-02, FR-31, BR-02); screens for residents, units, occupancy and
    staff permissions (FR-03 – FR-08); then bulk import, household members, move-out (FR-42,
-   FR-54, FR-56). Real login replaces the "Viewing as" middleware.
+   FR-54, FR-56). Login with hashed passwords and sessions is built (§5).
 3. **Billing & finances:** fees, monthly bills, payments, opening balances, receipts (FR-09 –
    FR-15, FR-32, FR-41), then payment reports, voiding, statements, certificates and expenses
    (FR-33, FR-39, FR-40, FR-43 – FR-46).
@@ -619,7 +628,7 @@ Not planned in detail yet. In SRS priority order (Must first):
 | `npm run db:create` says *password authentication failed* | Put the right password in `DATABASE_URL` (Windows/Linux: the `postgres` user's password) |
 | `role "postgres" does not exist` (macOS) | Use your macOS login name instead: `postgres://localhost:5432/apartment_maintenance` |
 | `relation ... does not exist` | Run `npm run db:migrate` |
-| The "Viewing as" menu is empty | Run `npm run db:seed` |
+| A demo user cannot log in | Run `npm run db:seed` (it sets the demo passwords) |
 | `EADDRINUSE: address already in use :::3000` | Another server is running. Stop it, or set another `PORT` in `.env` |
 | API tests say *skipped* | PostgreSQL is not running; start it and run `npm test` again |
 | A photo is refused | Only real JPG, PNG or WEBP files up to 5 MB, at most 3 at a time |

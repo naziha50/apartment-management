@@ -1,15 +1,17 @@
 /**
- * The frame every page shares (UI-02): top bar with the building name and the
- * "Viewing as" menu, and a navigation bar that shows only the links for the
- * current user's role (FR-02). On phones the navigation folds into a menu
- * button (UI-03).
+ * The frame every page shares (UI-02): top bar with the building name, the
+ * logged-in user's name and a Log out button (FR-01), and a navigation bar that
+ * shows only the links for the user's role (FR-02). On phones the navigation
+ * folds into a menu button (UI-03).
  *
- *   const user = await initLayout({ active: 'home' });   // user may be null
+ * Every page needs a login (NFR-03): without one, the browser goes to the
+ * login page, which brings the person back here afterwards.
+ *
+ *   const user = await initLayout({ active: 'home' });
  */
 import { api } from './api.js';
 import { el, $, icon, replace } from './dom.js';
 import { toast } from './ui.js';
-import { initViewingAs } from './viewing-as.js';
 
 // FR-25: how often an open page checks for new notifications. Checking (not pushing) works with any
 // number of server processes and costs one small indexed count per open, visible tab.
@@ -84,7 +86,18 @@ function canSee(user, item) {
 
 export async function initLayout({ active } = {}) {
   const header = $('#site-header');
-  const select = el('select', { id: 'viewing-as-select', 'aria-label': 'Viewing as' }, el('option', { value: '', text: 'Loading…' }));
+  // FR-01: who is logged in, and the way out.
+  const accountName = el('span', { class: 'account__name' });
+  const logout = el('button', { type: 'button', class: 'account__logout', text: 'Log out' });
+  logout.addEventListener('click', async () => {
+    logout.disabled = true;
+    try {
+      await api.post('/auth/logout');
+    } finally {
+      location.href = '/login.html';
+    }
+  });
+  const account = el('div', { class: 'account', hidden: true }, accountName, logout);
   const nav = el('nav', { class: 'mainnav', id: 'mainnav', 'aria-label': 'Main' });
   const toggle = el(
     'button',
@@ -114,7 +127,7 @@ export async function initLayout({ active } = {}) {
         toggle,
         el('a', { class: 'brand', href: '/' }, el('span', { class: 'brand__mark' }, icon('home')), el('span', { class: 'brand__name', text: BUILDING_NAME })),
         bell,
-        el('label', { class: 'viewing-as' }, el('span', { class: 'viewing-as__label', text: 'Viewing as' }), select),
+        account,
       ),
     ),
     nav,
@@ -128,33 +141,29 @@ export async function initLayout({ active } = {}) {
     );
   };
 
-  // Resolve with the first user; when the user is switched later, reload the
-  // page so everything (navigation, data, buttons) matches the new role.
-  return new Promise((resolve, reject) => {
-    let first = true;
-    initViewingAs(select, (user) => {
-      if (first) {
-        first = false;
-        renderNav(user);
-        if (user) {
-          bell.hidden = false;
-          refreshBell();
-          // Stay current while the page is open: check regularly while the tab is visible,
-          // and at once when the person comes back to it (hidden tabs send nothing).
-          setInterval(() => {
-            if (document.visibilityState === 'visible') refreshBell();
-          }, BELL_REFRESH_MS);
-          document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') refreshBell();
-          });
-        }
-        resolve(user);
-      } else {
-        location.reload();
-      }
-    }).catch((err) => {
-      renderNav(null);
-      reject(err);
-    });
+  // Who is logged in? Without a login, api.js has already sent the browser to the
+  // login page, so this page never finishes loading (the promise never resolves).
+  let user;
+  try {
+    ({ user } = await api.get('/me'));
+  } catch (err) {
+    if (err.status === 401) return new Promise(() => {});
+    renderNav(null);
+    throw err;
+  }
+
+  renderNav(user);
+  accountName.textContent = user.fullName;
+  account.hidden = false;
+  bell.hidden = false;
+  refreshBell();
+  // Stay current while the page is open: check regularly while the tab is visible,
+  // and at once when the person comes back to it (hidden tabs send nothing).
+  setInterval(() => {
+    if (document.visibilityState === 'visible') refreshBell();
+  }, BELL_REFRESH_MS);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refreshBell();
   });
+  return user;
 }

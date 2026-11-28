@@ -21,6 +21,8 @@ module.exports = Object.freeze({
   port: int('PORT', 3000),
   databaseUrl: process.env.DATABASE_URL || 'postgres://localhost:5432/apartment_maintenance',
   timezone: TIME_ZONE,
+  // NFR-03: a login session ends after this many minutes without a request.
+  sessionIdleMinutes: int('SESSION_IDLE_MINUTES', 30),
   // BR-19: request photos are kept on disk, outside /public.
   uploads: {
     dir: path.resolve(__dirname, '..', process.env.UPLOAD_DIR || './storage/uploads'),

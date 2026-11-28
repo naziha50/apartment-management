@@ -1,32 +1,45 @@
 'use strict';
 /**
- * Who is making this request?
+ * Who is making this request? Sets req.user (FR-01, FR-02, NFR-03).
  *
- * ⚠ DEVELOPMENT STAND-IN FOR LOGIN — this is NOT authentication.
- * Login (FR-01/FR-02) is out of scope for now. The page sends the id of the
- * user chosen in the "Viewing as" menu in the `X-User-Id` header, and this
- * middleware turns it into `req.user`.
+ * 1. The login session cookie (see server/modules/auth). A session that has
+ *    not been used for config.sessionIdleMinutes has ended.
+ * 2. Development and tests only: the X-User-Id header, so automated tests can
+ *    act as any demo user without logging in. It is ignored on a live server
+ *    (NODE_ENV=production), where only a real login counts.
  *
- * Everything else in the app only ever reads `req.user`. When real login is
- * built, only this file changes (read the session instead of the header).
+ * Everything else in the app only ever reads `req.user`.
  */
 const config = require('../config');
 const users = require('../modules/users/users.repository');
+const auth = require('../modules/auth/auth.repository');
+const { hashToken } = require('../lib/passwords');
+const { SESSION_COOKIE, readCookie } = require('../lib/cookies');
 const { unauthorized } = require('../lib/errors');
 
-// Anyone can send this header, so it is ignored on a live server: nobody is logged in there until real login exists.
 const devStandInEnabled = config.env !== 'production';
 
 /** Sets req.user to { id, buildingId, role, fullName, email, phone, permissions } or null. */
 async function loadCurrentUser(req, res, next) {
   req.user = null;
-  const raw = req.get('X-User-Id');
-  if (!raw || !devStandInEnabled) return next();
-  const id = Number(raw);
-  if (!Number.isSafeInteger(id) || id <= 0) return next(unauthorized('The selected user is not valid. Please choose again.'));
   try {
+    // 1. Logged in?
+    const token = readCookie(req, SESSION_COOKIE);
+    if (token) {
+      const userId = await auth.useSession(hashToken(token), config.sessionIdleMinutes);
+      if (userId) {
+        req.user = await users.findActiveById(userId);
+        return next();
+      }
+    }
+
+    // 2. Development and tests: X-User-Id header.
+    const raw = req.get('X-User-Id');
+    if (!raw || !devStandInEnabled) return next();
+    const id = Number(raw);
+    if (!Number.isSafeInteger(id) || id <= 0) return next(unauthorized('The selected user is not valid.'));
     req.user = await users.findActiveById(id);
-    if (!req.user) return next(unauthorized('The selected user no longer exists or is inactive. Please choose again.'));
+    if (!req.user) return next(unauthorized('The selected user no longer exists or is inactive.'));
     return next();
   } catch (err) {
     return next(err);
