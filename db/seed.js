@@ -8,6 +8,10 @@
  * All names, emails and phone numbers are made up. Never run against real data.
  */
 const { Client } = require('pg');
+const { hashPassword } = require('../server/lib/passwords');
+
+// Password of every demo user below (FR-01). Demo data only: never use it on a live server.
+const DEMO_PASSWORD = 'demo1234';
 
 const BUILDING = { id: 1, name: 'Green Valley Apartments', address: 'Road 12, Dhanmondi, Dhaka' };
 
@@ -72,6 +76,11 @@ async function seed({ databaseUrl, log = console.log } = {}) {
         [role, fullName, email, phone],
       );
       userIds[email] = rows[0].id;
+      // FR-01: every demo user can log in with DEMO_PASSWORD. A password changed later is kept.
+      await client.query('UPDATE users SET password_hash = $2 WHERE id = $1 AND password_hash IS NULL', [
+        rows[0].id,
+        await hashPassword(DEMO_PASSWORD),
+      ]);
       for (const permission of permissions) {
         await client.query(
           'INSERT INTO staff_permissions (user_id, permission) VALUES ($1, $2) ON CONFLICT DO NOTHING',

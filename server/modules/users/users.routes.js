@@ -1,7 +1,7 @@
 'use strict';
 /**
- * GET /api/v1/dev/users  people you can "view as" (development stand-in for login)
- * GET /api/v1/me         the user you are currently viewing as
+ * GET /api/v1/dev/users  demo users (development only; not available on a live server)
+ * GET /api/v1/me         the logged-in user (401 if nobody is logged in)
  */
 const express = require('express');
 const users = require('./users.repository');

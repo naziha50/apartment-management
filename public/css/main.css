@@ -103,16 +103,21 @@ main[tabindex="-1"]:focus { outline: none; }
 .icon-btn:hover { background: rgba(255, 255, 255, 0.12); }
 .icon-btn svg { width: 22px; height: 22px; }
 
-/* "Viewing as" — development stand-in for login */
-.viewing-as { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; white-space: nowrap; }
-.viewing-as select {
-  min-height: 40px; max-width: 46vw; padding: 0 0.5rem;
-  font: inherit; color: var(--ink); background: var(--surface);
-  border: 1px solid var(--line); border-radius: var(--radius-sm);
+/* Logged-in user and Log out button (FR-01) */
+.account { display: flex; align-items: center; gap: 0.75rem; font-size: 0.875rem; white-space: nowrap; }
+.account__name { max-width: 40vw; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.account__logout {
+  min-height: 36px; padding: 0 0.75rem; border: 1px solid rgba(255, 255, 255, 0.55); border-radius: var(--radius-sm);
+  background: transparent; color: inherit; font: inherit; font-weight: 600; cursor: pointer;
 }
+.account__logout:hover { background: rgba(255, 255, 255, 0.12); }
 @media (max-width: 480px) {
-  .viewing-as__label { display: none; } /* the select keeps its accessible name */
+  .account__name { display: none; } /* keep room for the menu, bell and Log out */
 }
+
+/* Login page */
+.login { max-width: 420px; margin: 2.5rem auto; }
+.login h1 { margin-top: 0; }
 
 /* Main navigation */
 .mainnav { background: var(--surface); border-bottom: 1px solid var(--line); }
@@ -186,7 +191,7 @@ main[tabindex="-1"]:focus { outline: none; }
 .field label, .field legend { font-weight: 600; }
 .field .hint { margin: 0; color: var(--ink-2); font-size: 0.875rem; }
 .req { color: var(--danger); }
-input[type="text"], input[type="search"], input[type="email"], input[type="tel"], input[type="date"], input[type="number"], select, textarea {
+input[type="text"], input[type="search"], input[type="email"], input[type="tel"], input[type="password"], input[type="date"], input[type="number"], select, textarea {
   width: 100%; min-height: var(--tap); padding: 0.55rem 0.75rem;
   font: inherit; color: var(--ink); background: var(--surface);
   border: 1px solid #a9a69c; border-radius: var(--radius-sm);

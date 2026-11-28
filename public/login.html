@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <title>Log in · Green Valley Apartments</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <script type="module" src="/js/pages/login.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header">
+    <div class="topbar">
+      <div class="topbar__inner">
+        <span class="brand"><span class="brand__name">Green Valley Apartments</span></span>
+      </div>
+    </div>
+  </header>
+
+  <!-- FR-01: log in securely -->
+  <main class="page" id="main" tabindex="-1">
+    <section class="card login">
+      <h1>Log in</h1>
+      <p class="muted">Use the email address or phone number the building office has for you.</p>
+
+      <form id="login-form" class="form" novalidate>
+        <p id="login-alert" class="form-alert" role="alert" hidden></p>
+
+        <div class="field">
+          <label for="login">Email or phone number</label>
+          <input id="login" name="login" type="text" autocomplete="username" required>
+          <p class="field-error" id="login-error" hidden></p>
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+          <p class="field-error" id="password-error" hidden></p>
+        </div>
+
+        <div class="form-actions">
+          <button id="login-button" class="btn btn-primary" type="submit">Log in</button>
+        </div>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

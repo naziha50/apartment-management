@@ -50,7 +50,7 @@ async function showPage(user) {
   message.textContent = '';
 
   if (!user) {
-    message.textContent = 'Choose a user from the "Viewing as" menu.';
+    message.textContent = 'Please log in.';
     return;
   }
   if (user.role !== 'admin') {

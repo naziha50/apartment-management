@@ -1,27 +1,9 @@
 /**
  * The only way pages talk to the server: JSON over the REST API (SI-01).
- * Every call carries the "Viewing as" user id in the X-User-Id header
- * (development stand-in for login — see server/middleware/current-user.js).
+ * The browser sends the login session cookie with every call by itself
+ * (FR-01); no page ever sees or handles the cookie.
  */
 const BASE = '/api/v1';
-const USER_KEY = 'am.userId';
-
-export function getViewingAs() {
-  try {
-    return localStorage.getItem(USER_KEY);
-  } catch {
-    return null; // storage blocked (private mode): nobody selected
-  }
-}
-
-export function setViewingAs(userId) {
-  try {
-    if (userId) localStorage.setItem(USER_KEY, String(userId));
-    else localStorage.removeItem(USER_KEY);
-  } catch {
-    /* ignore */
-  }
-}
 
 class ApiError extends Error {
   constructor(status, body) {
@@ -33,10 +15,21 @@ class ApiError extends Error {
   }
 }
 
+/** The address of the login page, which comes back to the current page afterwards. */
+export function loginUrl() {
+  return '/login.html?next=' + encodeURIComponent(location.pathname + location.search);
+}
+
+/**
+ * NFR-03: when the session has ended (logged out in another tab, or idle too long),
+ * any call answers 401. Then go to the login page, except on the login page itself.
+ */
+function goToLoginIfLoggedOut(res) {
+  if (res.status === 401 && location.pathname !== '/login.html') location.href = loginUrl();
+}
+
 async function request(method, path, body) {
   const headers = { Accept: 'application/json' };
-  const userId = getViewingAs();
-  if (userId) headers['X-User-Id'] = userId;
   const isForm = body instanceof FormData; // the browser sets the multipart Content-Type itself
   if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
 
@@ -47,22 +40,20 @@ async function request(method, path, body) {
     throw new ApiError(0, { error: { code: 'NETWORK', message: 'You appear to be offline. Check your connection and try again.' } });
   }
   const data = await res.json().catch(() => null);
-  if (!res.ok) throw new ApiError(res.status, data);
+  if (!res.ok) {
+    goToLoginIfLoggedOut(res);
+    throw new ApiError(res.status, data);
+  }
   return data;
 }
 
-/**
- * Downloads a file (a request photo, a CSV export) as a File named as the server names it.
- * A plain <img src> or link cannot send the X-User-Id header, so files are fetched here and
- * shown or saved from a blob: URL.
- * shortcut: needed only while "Viewing as" stands in for login; with a session cookie, <img src> works directly.
- */
+/** Downloads a file (a request photo, a CSV export) as a File named as the server names it. */
 async function blob(url) {
-  const headers = {};
-  const userId = getViewingAs();
-  if (userId) headers['X-User-Id'] = userId;
-  const res = await fetch(url, { headers });
-  if (!res.ok) throw new ApiError(res.status, await res.json().catch(() => null));
+  const res = await fetch(url);
+  if (!res.ok) {
+    goToLoginIfLoggedOut(res);
+    throw new ApiError(res.status, await res.json().catch(() => null));
+  }
   const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || 'download';
   return new File([await res.blob()], name, { type: res.headers.get('Content-Type') || '' });
 }

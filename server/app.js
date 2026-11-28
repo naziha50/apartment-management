@@ -5,7 +5,7 @@
  *
  *   Browser (HTML/CSS/JS) ──fetch JSON──► /api/v1/* ──SQL──► PostgreSQL
  *
- * So far: health check, "Viewing as" user switcher (stand-in for login),
+ * So far: health check, login and logout (FR-01),
  * security headers, the static frontend and the maintenance API.
  */
 const path = require('node:path');
@@ -15,6 +15,7 @@ const { loadCurrentUser } = require('./middleware/current-user');
 const { errorHandler, apiNotFound } = require('./middleware/error-handler');
 const { securityHeaders, noStore } = require('./middleware/security');
 const usersRoutes = require('./modules/users/users.routes');
+const authRoutes = require('./modules/auth/auth.routes');
 const billingRoutes = require('./modules/billing/billing.routes');
 const dashboardRoutes = require('./modules/dashboard/dashboard.routes');
 const maintenanceRoutes = require('./modules/maintenance/maintenance.routes');
@@ -42,7 +43,7 @@ function createApp() {
   // All endpoints live under a versioned prefix so the API can evolve safely.
   const api = express.Router();
   api.use(noStore);
-  api.use(loadCurrentUser); // sets req.user from the "Viewing as" choice
+  api.use(loadCurrentUser); // sets req.user from the login session (FR-01)
 
   api.get('/health', async (req, res) => {
     try {
@@ -53,6 +54,7 @@ function createApp() {
       res.status(503).json({ status: 'error', database: 'unreachable' });
     }
   });
+  api.use(authRoutes);
   api.use(usersRoutes);
   api.use(billingRoutes);
   api.use(dashboardRoutes);
