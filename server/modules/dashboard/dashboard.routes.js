@@ -2,7 +2,8 @@
 /**
  * Administrative dashboard API (admin only).
  *
- * GET /api/v1/dashboard           FR-27 occupancy, FR-28 billing, FR-29 maintenance, FR-30 recent activity
+ * GET /api/v1/dashboard           FR-27 occupancy, FR-28 billing, FR-29 maintenance,
+ *                                 FR-30 recent activity and the newest announcements
  * GET /api/v1/dashboard/search    FR-30 search residents, units, bills and requests (?q=text)
  */
 const express = require('express');
@@ -69,6 +70,16 @@ router.get('/dashboard', requireUser, requireAdmin, async (req, res) => {
       items.push({ kind: 'request', at: r.at, text: `Request ${r.request_number} submitted – ${r.title}` });
     }
   }
+
+  // FR-30: recent announcements. null until the announcements module's table exists.
+  let announcements = null;
+  if (await dashboard.tableExists('announcements')) {
+    const rows = await dashboard.recentAnnouncements(buildingId);
+    for (const a of rows) {
+      items.push({ kind: 'announcement', at: a.at, text: `Announcement published – ${a.title}` });
+    }
+    announcements = rows.slice(0, 5).map((a) => ({ id: Number(a.id), title: a.title, category: a.category, at: a.at }));
+  }
   items.sort((a, b) => new Date(b.at) - new Date(a.at));
 
   res.json({
@@ -76,7 +87,7 @@ router.get('/dashboard', requireUser, requireAdmin, async (req, res) => {
     billing,
     maintenance,
     recentActivity: items.slice(0, 10),
-    announcementsAvailable: await dashboard.tableExists('announcements'),
+    announcements,
   });
 });
 
