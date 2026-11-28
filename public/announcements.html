@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="News and notices from the building admin.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <title>Announcements · Green Valley Apartments</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <script src="/vendor/motion.js" defer></script>
+  <script type="module" src="/js/pages/announcements.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header" id="site-header"></header>
+
+  <main class="page" id="main" tabindex="-1">
+    <div class="page-head">
+      <div>
+        <h1>Announcements</h1>
+        <p class="muted">News and notices from the building admin.</p>
+      </div>
+      <button type="button" class="btn btn-secondary" id="mark-all" hidden>Mark all as read</button>
+    </div>
+
+    <!-- The admin's publish / edit form. Filled in by announcements.js. -->
+    <section class="card" id="editor" aria-labelledby="editor-title" hidden></section>
+
+    <section id="content" class="form" aria-live="polite">
+      <p class="muted empty">Loading…</p>
+    </section>
+  </main>
+</body>
+</html>

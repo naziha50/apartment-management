@@ -1,7 +1,7 @@
 /**
  * FR-25: my notifications, newest first, 25 per page. Unread ones are marked
  * "New" (in words, not only colour). Opening one marks it read, then goes to
- * its request.
+ * its request or announcement.
  */
 import { api } from '../api.js';
 import { $, el, replace } from '../dom.js';
@@ -12,6 +12,12 @@ import { animateList, emptyState, errorState, pagination, withBusy } from '../ui
 const card = $('#content');
 const markAll = $('#mark-all');
 let currentPage = 1;
+
+/** Where a notification leads: its request, its announcement, or home. */
+function linkFor(n) {
+  if (n.requestId) return `/request.html?id=${n.requestId}`;
+  return n.announcementId ? `/announcements.html#a-${n.announcementId}` : '/';
+}
 
 /** Marks an unread notification read before following its link (the link still works if that fails). */
 async function open(event, n) {
@@ -29,7 +35,7 @@ async function load(page) {
     setBellCount(data.unread);
     markAll.hidden = !data.unread;
     if (!data.total) {
-      replace(card, emptyState('No notifications yet.', 'Updates about your requests will appear here.'));
+      replace(card, emptyState('No notifications yet.', 'Updates and announcements will appear here.'));
       return;
     }
     const items = data.items.map((n) =>
@@ -38,7 +44,7 @@ async function load(page) {
         { class: n.read ? 'notice' : 'notice notice--unread' },
         el(
           'a',
-          { href: n.requestId ? `/request.html?id=${n.requestId}` : '/', onclick: (e) => open(e, n) },
+          { href: linkFor(n), onclick: (e) => open(e, n) },
           n.read ? null : el('span', { class: 'notice__new', text: 'New' }),
           el('span', { class: 'notice__text', text: n.message }),
         ),

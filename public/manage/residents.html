@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Add, find, edit and deactivate resident accounts.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <title>Residents · Green Valley Apartments</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <script src="/vendor/motion.js" defer></script>
+  <script type="module" src="/js/pages/residents.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header" id="site-header"></header>
+
+  <main class="page" id="main" tabindex="-1">
+    <div class="page-head">
+      <div>
+        <h1>Residents</h1>
+        <p class="muted">Add, find and edit resident accounts. Deactivated accounts keep their history.</p>
+      </div>
+    </div>
+
+    <!-- Add or edit a resident. Filled in by residents.js. -->
+    <section class="card" id="editor" aria-labelledby="editor-title"></section>
+
+    <!-- Search and status filter -->
+    <section class="card" id="filters" aria-label="Find residents" hidden>
+      <form id="search-form" class="filters" role="search">
+        <div class="field">
+          <label for="q">Search</label>
+          <input id="q" name="q" type="search" maxlength="100" placeholder="Name, email, phone or unit">
+        </div>
+        <div class="field">
+          <label for="status">Status</label>
+          <select id="status" name="status">
+            <option value="">All</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Search</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card card--flush" id="content" aria-live="polite">
+      <p class="muted empty">Loading…</p>
+    </section>
+  </main>
+</body>
+</html>

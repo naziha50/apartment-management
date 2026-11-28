@@ -35,6 +35,7 @@ async function list(user, query = {}) {
     items: rows.map((n) => ({
       id: Number(n.id),
       requestId: n.request_id ? Number(n.request_id) : null,
+      announcementId: n.announcement_id ? Number(n.announcement_id) : null,
       message: n.message,
       read: n.read_at != null,
       createdAt: n.created_at,

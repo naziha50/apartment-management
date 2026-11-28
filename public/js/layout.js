@@ -55,6 +55,7 @@ const NAV = {
     { key: 'requests', label: 'My requests', href: '/resident/requests.html' },
     { key: 'newRequest', label: 'Report a problem', href: '/resident/new-request.html' },
     { key: 'bills', label: 'My bills', href: '/bills.html' }, // FR-13
+    { key: 'announcements', label: 'Announcements', href: '/announcements.html' }, // FR-23
   ],
   staff: [
     { key: 'home', label: 'Home', href: '/' },
@@ -64,6 +65,9 @@ const NAV = {
   ],
   admin: [
     { key: 'home', label: 'Home', href: '/' },
+    { key: 'residents', label: 'Residents', href: '/manage/residents.html' },
+    { key: 'apartments', label: 'Apartments', href: '/manage/apartments.html' },
+    { key: 'announcements', label: 'Announcements', href: '/announcements.html' }, // FR-23
     { key: 'requests', label: 'Requests', href: '/manage/requests.html' },
     { key: 'report', label: 'Maintenance report', href: '/manage/report.html' },
     { key: 'tasks', label: 'Scheduled tasks', href: '/manage/scheduled-tasks.html' },
