@@ -11,6 +11,7 @@
  */
 import { api } from './api.js';
 import { initLayout } from './layout.js';
+import { withBusy } from './ui.js';
 import { METHOD_TEXT, billLabel, taka, receiptNumber, statusBadge, makeLink } from './bill-format.js';
 
 const message = document.getElementById('message');
@@ -172,7 +173,7 @@ generateForm.addEventListener('submit', async (event) => {
   };
 
   try {
-    const result = await api.post('/bills/generate', body);
+    const result = await withBusy(event.submitter, () => api.post('/bills/generate', body));
     let text = `Created ${result.created} bill(s).`;
     if (result.skipped.length > 0) {
       text += ` Skipped units that already had this bill: ${result.skipped.join(', ')}.`;
@@ -203,7 +204,7 @@ createForm.addEventListener('submit', async (event) => {
   };
 
   try {
-    const { bill } = await api.post('/bills', newBill);
+    const { bill } = await withBusy(event.submitter, () => api.post('/bills', newBill));
     message.textContent = `Bill "${billLabel(bill.billType, bill.billMonth)}" created for unit ${bill.unitNumber}.`;
     createForm.reset();
     await loadBills();

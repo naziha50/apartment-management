@@ -2,10 +2,10 @@
  * Apartment Management — the one stylesheet for every page (UI-02).
  *
  * Usability rules built in:
- *  - colour contrast ≥ 4.5:1 and a visible keyboard focus ring (NFR-12)
- *  - works from 360 px wide with no sideways scrolling; tables become cards on phones (NFR-10, UI-03)
+ *  - colour contrast ≥ 4.5:1 and a visible keyboard focus ring (NFR-04)
+ *  - works from 360 px wide with no sideways scrolling; tables become cards on phones (NFR-06, UI-03)
  *  - statuses always show text, colour is only extra (UI-06)
- *  - touch targets at least 44 px; Bangla-capable font stack (NFR-28)
+ *  - touch targets at least 44 px; Bangla-capable font stack
  *  - animations are switched off for people who ask for reduced motion
  */
 

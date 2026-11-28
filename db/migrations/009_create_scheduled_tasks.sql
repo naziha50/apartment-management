@@ -4,7 +4,7 @@
 
 CREATE TABLE scheduled_tasks (
   id                BIGSERIAL PRIMARY KEY,
-  building_id       INT NOT NULL DEFAULT 1 REFERENCES buildings(id),               -- NFR-26
+  building_id       INT NOT NULL DEFAULT 1 REFERENCES buildings(id),               -- NFR-14
   title             TEXT NOT NULL CHECK (length(trim(title)) BETWEEN 3 AND 120),     -- same limits as a request
   description       TEXT CHECK (description IS NULL OR length(trim(description)) BETWEEN 1 AND 4000),
   category          TEXT NOT NULL CHECK (category IN (                              -- FR-16 categories

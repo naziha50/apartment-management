@@ -7,7 +7,7 @@
 
 CREATE TABLE announcements (
   id           BIGSERIAL PRIMARY KEY,
-  building_id  INT NOT NULL DEFAULT 1 REFERENCES buildings(id),                  -- NFR-26
+  building_id  INT NOT NULL DEFAULT 1 REFERENCES buildings(id),                  -- NFR-14
   title        TEXT NOT NULL CHECK (char_length(title) BETWEEN 1 AND 150),
   body         TEXT NOT NULL CHECK (char_length(body) BETWEEN 1 AND 5000),
   category     TEXT NOT NULL CHECK (category IN ('service', 'maintenance', 'meeting', 'rules')),

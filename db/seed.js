@@ -22,7 +22,7 @@ const USERS = [
   ['staff', 'Jamal Hossain', 'caretaker@example.com', '+8801711000003', []], // default staff: assigned requests only
   ['resident', 'Rahima Rahman', 'resident1@example.com', '+8801711000011', []],
   ['resident', 'Tanvir Ahmed', 'resident2@example.com', '+8801711000012', []],
-  ['resident', 'সাদিয়া ইসলাম', 'resident3@example.com', '+8801711000013', []], // Bangla name (NFR-28)
+  ['resident', 'সাদিয়া ইসলাম', 'resident3@example.com', '+8801711000013', []], // Bangla name
 ];
 
 // unit number, floor, size (sq ft), bedrooms

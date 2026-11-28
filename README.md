@@ -74,7 +74,7 @@ Runtime dependencies are deliberately few: `express`, `pg`, `multer` (photo uplo
 
 ### Code structure
 
-The server is split into one folder per module (SRS NFR-20). Each module has three layers:
+The server is split into one folder per module (SRS NFR-12). Each module has three layers:
 
 ```
 routes (HTTP in/out)  →  service (rules, permissions, transactions)  →  repository (SQL only)
@@ -117,15 +117,18 @@ New modules (billing, announcements, …) will follow the same pattern next to `
 | SRS item | How |
 |---|---|
 | NFR-02 Server-side checks | Every endpoint checks role and permission on the server; buttons only show what the server allows |
-| NFR-04 Input checking | Every input is checked on the server; all SQL uses parameters |
-| NFR-05 No script injection | User text is inserted only as text, never as HTML; a strict Content Security Policy |
-| NFR-06 Safe uploads | Content checked, random names, stored outside the web folder, never executed |
-| NFR-10 Phones | Works at 360 px wide without sideways scrolling; tables become cards |
-| NFR-12 Accessibility | Labels, keyboard use, visible focus, skip link, contrast ≥ 4.5:1. Lighthouse scores 100 on every page |
-| NFR-14 All-or-nothing | Every change and its history and notifications are saved in one database transaction |
-| NFR-17 / NFR-18 Speed | Tested with 100,000 requests and 50 users at once: about 1,250 requests per second, 95% of answers within 70 ms |
-| NFR-24 Privacy | A resident asking for another resident's request (or photo) gets "not found", not "forbidden" |
-| NFR-28 Bangla | Bangla names and text are stored and shown correctly (one demo resident has a Bangla name) |
+| NFR-04 Easy to use | Labels, keyboard use, visible focus, skip link, contrast ≥ 4.5:1. Lighthouse scores 100 on every page |
+| NFR-06 Phones | Works at 360 px wide without sideways scrolling; tables become cards |
+| NFR-07 Clear errors | Every problem is explained in plain words next to the field to fix |
+| NFR-08 All-or-nothing | Every change and its history and notifications are saved in one database transaction |
+| NFR-10 / NFR-11 Speed | Tested with 100,000 requests and 50 users at once: about 1,250 requests per second, 95% of answers within 70 ms |
+| NFR-12 Modules | Maintenance lives in its own folders (`server/modules/maintenance`, its own pages and tests) |
+| NFR-14 Room to grow | Every table has a `building_id`; lists are paged and indexed, so more units and residents need no redesign |
+| NFR-15 / NFR-16 Privacy | A resident asking for another resident's request (or photo) gets "not found", not "forbidden"; photos are served only through the API |
+| Input checking | Every input is checked on the server; all SQL uses parameters |
+| No script injection | User text is inserted only as text, never as HTML; a strict Content Security Policy |
+| Safe uploads | Content checked, random names, stored outside the web folder, never executed |
+| Bangla | Bangla names and text are stored and shown correctly (one demo resident has a Bangla name) |
 
 ### Left to other modules on purpose
 
@@ -438,7 +441,7 @@ next numbered file; never edit one that is already committed. See
 
 | Migration | Tables | Purpose |
 |---|---|---|
-| `001_create_users_and_units.sql` | `buildings`, `users`, `staff_permissions`, `units`, `occupancies` | Who lives where and who handles requests. Every building table has a `building_id`, ready for more buildings later (NFR-26) |
+| `001_create_users_and_units.sql` | `buildings`, `users`, `staff_permissions`, `units`, `occupancies` | Who lives where and who handles requests. Every building table has a `building_id`, ready for more buildings later (NFR-14) |
 | `002_create_maintenance_requests.sql` | `maintenance_requests`, `request_updates` | Requests (number, status, priority, assignee) and their full history |
 | `003_create_request_attachments.sql` | `request_attachments` | Photo details (BR-19); the files are in `UPLOAD_DIR` |
 | `004_fix_request_number_overflow.sql` | — | Request numbers keep working past 99,999 |
@@ -486,7 +489,7 @@ Current result: **42 tests, all passing**, whatever time zone the computer itsel
 - Every page gets the same frame from `public/js/layout.js`: top bar with the bell, the user's name
   and **Log out**, and navigation that shows only the links for the current role.
 - User data is inserted only with `el()` / `textContent` from `public/js/dom.js`, never
-  `innerHTML` (NFR-05).
+  `innerHTML`.
 - No inline `<script>` or `style=""`: the security policy only allows files from this server.
 - Statuses always have a text label as well as a colour (UI-06).
 - Animations are served from `node_modules` at `/vendor/…` and skipped for reduced motion.
@@ -577,7 +580,7 @@ storage/         uploaded photos (git-ignored)
 - Step 17: filters, search and paging (FR-22)
 - Step 18: change the priority after review (FR-18)
 - Step 19: maintenance overview for the admin (FR-29)
-- Step 20: clean server shutdown and API integration tests (NFR-22)
+- Step 20: clean server shutdown and API integration tests (NFR-12)
 
 **Sprint 4 – Close the loop** ✅
 - Step 21: resolved requests close automatically after 7 days (BR-18)
@@ -616,7 +619,7 @@ Not planned in detail yet. In SRS priority order (Must first):
 5. **Dashboard & reports:** building and billing overview, collection rate, activity log,
    search, committee report (FR-27, FR-28, FR-30, FR-34, FR-57, FR-58).
 6. **General:** Bangla interface, install on phone, larger text (FR-47, FR-48, FR-55);
-   daily backups and a tested restore (NFR-15, NFR-16); OpenAPI documentation (NFR-21).
+   scheduled daily backups and a tested restore (NFR-09); OpenAPI documentation (NFR-13).
 
 ---
 

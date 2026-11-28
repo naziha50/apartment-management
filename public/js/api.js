@@ -28,8 +28,8 @@ function goToLoginIfLoggedOut(res) {
   if (res.status === 401 && location.pathname !== '/login.html') location.href = loginUrl();
 }
 
-async function request(method, path, body) {
-  const headers = { Accept: 'application/json' };
+async function request(method, path, body, extraHeaders) {
+  const headers = { Accept: 'application/json', ...extraHeaders };
   const isForm = body instanceof FormData; // the browser sets the multipart Content-Type itself
   if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
 
@@ -59,7 +59,7 @@ async function blob(url) {
 }
 
 export const api = {
-  get: (path) => request('GET', path),
+  get: (path, headers) => request('GET', path, undefined, headers),
   post: (path, body) => request('POST', path, body ?? {}),
   patch: (path, body) => request('PATCH', path, body),
   blob,

@@ -1,7 +1,7 @@
 /**
  * FR-21: one maintenance request — its details and its history (FR-20).
  * Opened as /request.html?id=123. The server decides who may see it and
- * answers "not found" for anyone else (NFR-24).
+ * answers "not found" for anyone else (NFR-16).
  *
  * FR-18 / FR-20 / FR-35: the Actions card shows only the status moves the
  * server says this user may make now (`allowed.transitions`); the server checks

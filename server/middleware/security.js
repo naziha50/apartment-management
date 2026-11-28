@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Security headers on every response (NFR-05, OWASP ASVS L1).
+ * Security headers on every response (OWASP ASVS L1).
  *
  * The Content-Security-Policy only allows scripts and styles from this server.
  * That is why pages never use inline <script> blocks or style="" attributes:
@@ -25,7 +25,7 @@ function securityHeaders(req, res, next) {
   next();
 }
 
-/** API responses carry personal data: browsers must not cache them (NFR-23). */
+/** API responses carry personal data: browsers must not cache them (NFR-15). */
 function noStore(req, res, next) {
   res.set('Cache-Control', 'no-store');
   next();

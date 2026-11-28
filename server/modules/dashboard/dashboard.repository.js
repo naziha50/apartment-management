@@ -8,6 +8,8 @@
  *   balance = total - paid, a bill is paid when total > 0 and paid >= total.
  */
 const db = require('../../db/pool');
+const maintenance = require('../maintenance/maintenance.repository');
+const { STATUSES } = require('../maintenance/maintenance.constants');
 
 // A bill with its total and paid amounts. Used by the money numbers and by search.
 const BILL_TOTALS = `
@@ -53,23 +55,11 @@ async function getBillingTotals(buildingId) {
   return rows[0];
 }
 
-// FR-29: requests per status, plus how many are overdue (open longer than the target hours).
+// FR-29: requests per status, plus how many are overdue. Taken from the maintenance module, so the
+// dashboard uses the same overdue rule as the Requests page (BR-17, and BR-25 for scheduled tasks).
 async function getMaintenanceCounts(buildingId) {
-  const { rows } = await db.query(
-    `SELECT status, COUNT(*)::int AS count
-     FROM maintenance_requests WHERE building_id = $1 GROUP BY status`,
-    [buildingId]
-  );
-  const overdue = await db.query(
-    `SELECT COUNT(*)::int AS count
-     FROM maintenance_requests
-     WHERE building_id = $1
-       AND status IN ('submitted', 'under_review', 'in_progress')
-       AND submitted_at < now() - (CASE priority
-             WHEN 'high' THEN 24 WHEN 'medium' THEN 72 WHEN 'low' THEN 168 ELSE 48 END) * interval '1 hour'`,
-    [buildingId]
-  );
-  return { rows, overdue: overdue.rows[0].count };
+  const counts = await maintenance.overview(buildingId);
+  return { byStatus: Object.fromEntries(STATUSES.map((s) => [s, counts[s]])), overdue: counts.overdue };
 }
 
 // FR-30: the 10 newest bills created.

@@ -3,7 +3,7 @@
  * Every API error is answered in one JSON shape:
  *   { "error": { "code": "NOT_FOUND", "message": "...", "fields": { ... } } }
  * Unexpected errors are logged on the server; the user only sees a plain
- * message, never a stack trace (NFR-11).
+ * message, never a stack trace (NFR-07).
  */
 const { HttpError } = require('../lib/errors');
 const { toIso } = require('../lib/dates');

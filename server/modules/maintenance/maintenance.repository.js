@@ -1,7 +1,7 @@
 'use strict';
 /**
  * Database access for maintenance requests. SQL only — the rules live in
- * maintenance.service.js. Every value is passed as a parameter (NFR-04).
+ * maintenance.service.js. Every value is passed as a parameter.
  * Functions that change data take a `client` so the caller can run them
  * inside one transaction.
  */

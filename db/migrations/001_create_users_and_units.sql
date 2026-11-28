@@ -4,7 +4,7 @@
 -- Login is not part of the current scope, so there is no password column yet;
 -- a later migration adds it when authentication (FR-01) is built.
 -- Every table holding building data has building_id so the system can later
--- serve more than one building without a redesign (NFR-26).
+-- serve more than one building without a redesign (NFR-14).
 
 CREATE EXTENSION IF NOT EXISTS btree_gist; -- needed for the "no overlapping occupancies" rule (BR-06)
 
@@ -29,7 +29,7 @@ CREATE TABLE users (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   CHECK (email IS NOT NULL OR phone IS NOT NULL)                         -- every user needs one contact / future login ID
-  -- No national ID column on purpose (NFR-25).
+  -- No national ID column on purpose (NFR-15).
 );
 CREATE UNIQUE INDEX users_email_uq ON users (lower(email)) WHERE email IS NOT NULL;
 CREATE UNIQUE INDEX users_phone_uq ON users (phone) WHERE phone IS NOT NULL;

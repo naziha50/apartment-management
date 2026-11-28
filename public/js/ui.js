@@ -61,7 +61,7 @@ export function emptyState(title, hint, action) {
   return el('div', { class: 'empty' }, el('strong', { text: title }), hint ? el('p', { text: hint }) : null, action || null);
 }
 
-/** Plain-language error box with an optional "Try again" (NFR-11). */
+/** Plain-language error box with an optional "Try again" (NFR-07). */
 export function errorState(err, retry) {
   return el(
     'div',

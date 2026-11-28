@@ -1,5 +1,5 @@
 /**
- * API integration tests (NFR-22): the real Express app over HTTP against a
+ * API integration tests (NFR-12): the real Express app over HTTP against a
  * real PostgreSQL test database. Run with `npm test`.
  *
  * The test database is TEST_DATABASE_URL, or DATABASE_URL with "_test" added
@@ -160,7 +160,7 @@ it('a resident submits a request; resident and unit are filled in by the server 
   assert.equal(staffTry.status, 403);
 });
 
-it('only the people involved can see a request; others get 404 (FR-21, NFR-24)', async () => {
+it('only the people involved can see a request; others get 404 (FR-21, NFR-16)', async () => {
   assert.equal((await call(U.tanvir, 'GET', `/maintenance/requests/${state.id}`)).status, 200);
   assert.equal((await call(U.admin, 'GET', `/maintenance/requests/${state.id}`)).status, 200);
   assert.equal((await call(U.karim, 'GET', `/maintenance/requests/${state.id}`)).status, 200);

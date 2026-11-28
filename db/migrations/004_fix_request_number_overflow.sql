@@ -1,5 +1,5 @@
 -- 004_fix_request_number_overflow.sql
--- Request numbers keep working after request 99,999 (FR-16, NFR-18).
+-- Request numbers keep working after request 99,999 (FR-16, NFR-14).
 --
 -- Migration 002 built the number with lpad(n, 5, '0'). lpad does not only pad:
 -- it also CUTS longer text, so request 100000 became "MR-YYYY-10000", the same

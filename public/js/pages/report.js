@@ -4,7 +4,7 @@
  * categories have the most, and how residents rated the work.
  *
  * The period lives in the page address (?from=…&to=…), so refreshing and shared links keep it.
- * Every figure is a table, which reads well aloud and prints (NFR-12).
+ * Every figure is a table, which reads well aloud and prints (NFR-04).
  */
 import { api } from '../api.js';
 import { $, el, replace } from '../dom.js';

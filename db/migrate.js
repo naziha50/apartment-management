@@ -7,7 +7,7 @@
  *
  * A migration is a numbered .sql file in db/migrations (001_create_users.sql, ...).
  * Each one runs exactly once, in name order, inside its own transaction: it is
- * either applied completely or not at all (NFR-14). Applied files are recorded
+ * either applied completely or not at all (NFR-08). Applied files are recorded
  * in the schema_migrations table.
  */
 const fs = require('node:fs');

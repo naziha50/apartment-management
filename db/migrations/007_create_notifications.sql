@@ -7,7 +7,7 @@
 
 CREATE TABLE notifications (
   id           BIGSERIAL PRIMARY KEY,
-  building_id  INT NOT NULL DEFAULT 1 REFERENCES buildings(id),                   -- NFR-26
+  building_id  INT NOT NULL DEFAULT 1 REFERENCES buildings(id),                   -- NFR-14
   user_id      BIGINT NOT NULL REFERENCES users(id),                             -- who it is for
   request_id   BIGINT REFERENCES maintenance_requests(id),                       -- what it is about (opens on click)
   message      TEXT NOT NULL CHECK (char_length(message) BETWEEN 1 AND 300),

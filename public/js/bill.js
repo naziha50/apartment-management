@@ -7,6 +7,7 @@
  */
 import { api } from './api.js';
 import { initLayout } from './layout.js';
+import { withBusy } from './ui.js';
 import { METHOD_TEXT, TYPE_TEXT, billLabel, taka, receiptNumber, statusBadge, makeLink } from './bill-format.js';
 
 const billId = new URLSearchParams(location.search).get('id');
@@ -170,10 +171,10 @@ chargeForm.addEventListener('submit', async (event) => {
 
   try {
     if (editingChargeId) {
-      await api.patch(`/bills/${encodeURIComponent(billId)}/charges/${editingChargeId}`, body);
+      await withBusy(event.submitter, () => api.patch(`/bills/${encodeURIComponent(billId)}/charges/${editingChargeId}`, body));
       message.textContent = 'Charge changed.';
     } else {
-      await api.post(`/bills/${encodeURIComponent(billId)}/charges`, body);
+      await withBusy(event.submitter, () => api.post(`/bills/${encodeURIComponent(billId)}/charges`, body));
       message.textContent = 'Charge added.';
     }
     setEditing(null);
@@ -198,7 +199,8 @@ paymentForm.addEventListener('submit', async (event) => {
   };
 
   try {
-    await api.post(`/bills/${encodeURIComponent(billId)}/payment`, body);
+    // The button stays disabled while sending, so a double click cannot record the payment twice.
+    await withBusy(event.submitter, () => api.post(`/bills/${encodeURIComponent(billId)}/payment`, body));
     message.textContent = 'Payment recorded.';
     paymentForm.reset();
     await loadBill();

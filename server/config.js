@@ -1,7 +1,7 @@
 'use strict';
 /**
  * Central configuration. Every value comes from the environment (.env), so the
- * same code runs on Windows, macOS and Linux (NFR-27) without edits.
+ * same code runs on Windows, macOS and Linux without edits.
  */
 const path = require('node:path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env'), quiet: true });

@@ -1,8 +1,8 @@
 'use strict';
 /**
- * Server-side input checking (NFR-04). It collects every problem at once, so
+ * Server-side input checking. It collects every problem at once, so
  * the form can show each message next to its own field (UI-04), in plain
- * words (NFR-11).
+ * words (NFR-07).
  *
  *   const v = new Validator(req.body);
  *   const title = v.text('title', { min: 3, max: 120, label: 'Title' });

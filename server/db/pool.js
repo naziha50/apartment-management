@@ -3,8 +3,8 @@
  * One shared PostgreSQL connection pool for the whole app.
  *
  * - query(): always pass values as parameters ($1, $2 ...), never build SQL
- *   strings from user input (NFR-04).
- * - withTransaction(): runs several queries all-or-nothing (NFR-14).
+ *   strings from user input.
+ * - withTransaction(): runs several queries all-or-nothing (NFR-08).
  */
 const { Pool, types } = require('pg');
 const config = require('../config');

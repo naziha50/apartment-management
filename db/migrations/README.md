@@ -12,7 +12,7 @@ Each file in this folder changes the database schema one step at a time.
    To change something, add a new migration (e.g. `005_add_priority_to_requests.sql`).
 3. **One topic per file**, with a comment at the top saying which SRS items it supports.
 4. Each file runs inside a transaction, so if any statement fails, nothing from that file is saved.
-5. Every table that holds building data gets a `building_id` column (NFR-26).
+5. Every table that holds building data gets a `building_id` column (NFR-14).
 
 ## Useful commands
 

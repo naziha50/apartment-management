@@ -21,17 +21,18 @@ async function createSession(tokenHash, userId) {
 /**
  * The user id of a session that is still alive, or null.
  * Alive = used within the last `idleMinutes`, and its user is still active.
- * A live session is marked as used now, so the idle time starts again.
+ * A live session is marked as used now, so the idle time starts again, unless `touch` is
+ * false (an automatic background check, which is not the person doing something).
  */
-async function useSession(tokenHash, idleMinutes) {
+async function useSession(tokenHash, idleMinutes, touch = true) {
   const { rows } = await db.query(
-    `UPDATE sessions s SET last_seen_at = now()
+    `UPDATE sessions s SET last_seen_at = CASE WHEN $3 THEN now() ELSE s.last_seen_at END
        FROM users u
       WHERE s.token_hash = $1
         AND u.id = s.user_id AND u.is_active
         AND s.last_seen_at > now() - make_interval(mins => $2)
       RETURNING s.user_id`,
-    [tokenHash, idleMinutes],
+    [tokenHash, idleMinutes, touch],
   );
   return rows[0] ? Number(rows[0].user_id) : null;
 }

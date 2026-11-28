@@ -1,7 +1,7 @@
 'use strict';
 /**
  * Database access for scheduled maintenance tasks (FR-49, BR-25). SQL only; the rules
- * live in scheduled-tasks.service.js. Every value is passed as a parameter (NFR-04).
+ * live in scheduled-tasks.service.js. Every value is passed as a parameter.
  */
 const db = require('../../db/pool');
 

@@ -32,7 +32,8 @@ export function setBellCount(unread) {
 /** Re-reads the count; says so (also to screen readers) when something new arrived since the last check. */
 async function refreshBell() {
   try {
-    const { unread } = await api.get('/notifications/unread-count');
+    // Marked as background: this automatic check must not keep an unattended session alive (NFR-03).
+    const { unread } = await api.get('/notifications/unread-count', { 'X-Background': '1' });
     if (lastUnread !== null && unread > lastUnread) {
       const fresh = unread - lastUnread;
       toast(fresh === 1 ? 'You have a new notification.' : `You have ${fresh} new notifications.`);

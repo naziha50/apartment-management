@@ -3,7 +3,9 @@
  * Who is making this request? Sets req.user (FR-01, FR-02, NFR-03).
  *
  * 1. The login session cookie (see server/modules/auth). A session that has
- *    not been used for config.sessionIdleMinutes has ended.
+ *    not been used for config.sessionIdleMinutes has ended. A request marked
+ *    `X-Background: 1` (the page checking for notifications by itself) does not
+ *    count as use, so an open page left alone still logs out (NFR-03).
  * 2. Development and tests only: the X-User-Id header, so automated tests can
  *    act as any demo user without logging in. It is ignored on a live server
  *    (NODE_ENV=production), where only a real login counts.
@@ -26,7 +28,8 @@ async function loadCurrentUser(req, res, next) {
     // 1. Logged in?
     const token = readCookie(req, SESSION_COOKIE);
     if (token) {
-      const userId = await auth.useSession(hashToken(token), config.sessionIdleMinutes);
+      const touch = req.get('X-Background') !== '1';
+      const userId = await auth.useSession(hashToken(token), config.sessionIdleMinutes, touch);
       if (userId) {
         req.user = await users.findActiveById(userId);
         return next();

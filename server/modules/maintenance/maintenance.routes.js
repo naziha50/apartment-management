@@ -91,7 +91,7 @@ router.get('/requests/:id', async (req, res) => {
   res.json(await service.getRequest(req.user, req.params.id));
 });
 
-// Photos are private: served only through the API, never from /public (NFR-23).
+// Photos are private: served only through the API, never from /public (NFR-15).
 router.get('/requests/:id/attachments/:attId', async (req, res, next) => {
   const photo = await service.getAttachment(req.user, req.params.id, req.params.attId);
   // Headers go through sendFile so an error reply is not labelled as an image.

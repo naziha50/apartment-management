@@ -51,11 +51,7 @@ router.get('/dashboard', requireUser, requireAdmin, async (req, res) => {
   // FR-29: null until the maintenance module's table exists
   const hasMaintenance = await dashboard.tableExists('maintenance_requests');
   let maintenance = null;
-  if (hasMaintenance) {
-    const result = await dashboard.getMaintenanceCounts(buildingId);
-    maintenance = { byStatus: {}, overdue: result.overdue };
-    for (const row of result.rows) maintenance.byStatus[row.status] = row.count;
-  }
+  if (hasMaintenance) maintenance = await dashboard.getMaintenanceCounts(buildingId);
 
   // FR-30: collect items from each source, then sort and keep the newest 10
   const items = [];

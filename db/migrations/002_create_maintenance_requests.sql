@@ -17,7 +17,7 @@ CREATE SEQUENCE maintenance_request_number_seq;
 
 CREATE TABLE maintenance_requests (
   id                BIGSERIAL PRIMARY KEY,
-  building_id       INT NOT NULL DEFAULT 1 REFERENCES buildings(id),            -- NFR-26
+  building_id       INT NOT NULL DEFAULT 1 REFERENCES buildings(id),            -- NFR-14
   request_number    TEXT NOT NULL UNIQUE DEFAULT (
                       'MR-' || to_char(now(), 'YYYY') || '-' ||
                       lpad(nextval('maintenance_request_number_seq')::text, 5, '0')),
@@ -45,7 +45,7 @@ CREATE TABLE maintenance_requests (
   CHECK (status NOT IN ('resolved', 'closed') OR resolution_note IS NOT NULL OR submitted_by IS NULL)
 );
 
--- Indexes for the lists and filters (NFR-18).
+-- Indexes for the lists and filters (NFR-11).
 CREATE INDEX maintenance_requests_status_idx       ON maintenance_requests (building_id, status, submitted_at);
 CREATE INDEX maintenance_requests_submitted_by_idx ON maintenance_requests (submitted_by);
 CREATE INDEX maintenance_requests_assigned_to_idx  ON maintenance_requests (assigned_to) WHERE assigned_to IS NOT NULL;

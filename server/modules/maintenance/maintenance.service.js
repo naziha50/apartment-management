@@ -87,7 +87,7 @@ async function createRequest(user, body, files = []) {
   v.throwIfInvalid();
   const photos = uploads.inspectFiles(files); // all photos checked before anything is saved
 
-  // The request, its first history entry and its photos are saved together or not at all (NFR-14).
+  // The request, its first history entry and its photos are saved together or not at all (NFR-08).
   const saved = await uploads.saveFiles(photos);
   let id;
   try {
@@ -130,7 +130,7 @@ function canView(row, user) {
 
 /**
  * The request row, but only if this user may see it; otherwise 404, never 403,
- * so ids cannot be probed (NFR-24). Every read and change goes through here.
+ * so ids cannot be probed (NFR-16). Every read and change goes through here.
  * With a transaction `client` the row is also locked until the change is saved.
  */
 async function loadVisible(rawId, user, client) {
@@ -227,7 +227,7 @@ async function exportRequests(user, query = {}) {
   };
 }
 
-/** FR-21: one request with its history. Requests the user may not see answer 404, never 403 (NFR-24). */
+/** FR-21: one request with its history. Requests the user may not see answer 404, never 403 (NFR-16). */
 async function getRequest(user, rawId) {
   const id = Number(rawId);
   const row = await loadVisible(id, user);
@@ -327,7 +327,7 @@ async function transition(user, rawId, body) {
   return getRequest(user, id);
 }
 
-/** BR-19: a photo, only for people who may see its request (NFR-23). */
+/** BR-19: a photo, only for people who may see its request (NFR-15). */
 async function getAttachment(user, rawRequestId, rawAttachmentId) {
   const row = await loadVisible(rawRequestId, user);
   const attachmentId = toId(rawAttachmentId);

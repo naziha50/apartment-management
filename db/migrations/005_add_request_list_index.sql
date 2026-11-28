@@ -1,5 +1,5 @@
 -- 005_add_request_list_index.sql
--- Fast request lists at any size (FR-21, FR-22, NFR-18).
+-- Fast request lists at any size (FR-21, FR-22, NFR-11).
 --
 -- Every list (resident, staff, admin) is sorted by most recent activity:
 -- ORDER BY updated_at DESC, id DESC within one building. This index has exactly

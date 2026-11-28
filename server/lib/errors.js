@@ -1,7 +1,7 @@
 'use strict';
 /**
  * Errors the API can return. Each has an HTTP status, a stable `code` the
- * frontend can check, and a plain-language message for the user (NFR-11).
+ * frontend can check, and a plain-language message for the user (NFR-07).
  *
  *   throw notFound('We could not find that request.');
  */
@@ -17,7 +17,7 @@ class HttpError extends Error {
 const badRequest = (message, fields) => new HttpError(400, 'VALIDATION_FAILED', message, fields);
 const unauthorized = (message = 'Please log in to continue.') => new HttpError(401, 'NO_USER', message);
 const forbidden = (message = 'You do not have permission to do this.') => new HttpError(403, 'FORBIDDEN', message);
-// Other people's records answer "not found", never "forbidden", so IDs cannot be probed (FR-02, NFR-24).
+// Other people's records answer "not found", never "forbidden", so IDs cannot be probed (FR-02, NFR-16).
 const notFound = (message = 'We could not find that.') => new HttpError(404, 'NOT_FOUND', message);
 // The request is valid but the record's current state does not allow it (e.g. a status move).
 const conflict = (message, code = 'CONFLICT') => new HttpError(409, code, message);

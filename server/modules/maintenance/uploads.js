@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Photo uploads for maintenance requests (BR-19, NFR-06, SI-03).
+ * Photo uploads for maintenance requests (BR-19, SI-03).
  *  - At most 3 photos, 5 MB each.
  *  - The real file type is read from the file's first bytes. The file name and
  *    the type the browser reports are not trusted, so a renamed .exe is rejected.

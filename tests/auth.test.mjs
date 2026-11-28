@@ -179,6 +179,31 @@ test('a session unused for longer than the idle time has ended (NFR-03)', { skip
   assert.equal((await getWith(res.cookie, '/me')).status, 401);
 });
 
+test('the automatic notification check does not keep an unattended session alive (NFR-03)', { skip }, async () => {
+  const res = await login('resident2@example.com', DEMO_PASSWORD);
+  const minutesIdle = async () => {
+    const { rows } = await db.query(
+      `SELECT extract(epoch FROM now() - last_seen_at) / 60 AS m FROM sessions
+        WHERE user_id = (SELECT id FROM users WHERE email = 'resident2@example.com')
+        ORDER BY last_seen_at DESC LIMIT 1`,
+    );
+    return Number(rows[0].m);
+  };
+  await db.query(
+    `UPDATE sessions SET last_seen_at = now() - interval '20 minutes'
+      WHERE user_id = (SELECT id FROM users WHERE email = 'resident2@example.com')`,
+  );
+
+  // The bell's check still works, but does not count as the person using the app.
+  const bell = await fetch(`${base}/notifications/unread-count`, { headers: { Cookie: res.cookie, 'X-Background': '1' } });
+  assert.equal(bell.status, 200);
+  assert.ok((await minutesIdle()) >= 19);
+
+  // A real request does.
+  assert.equal((await getWith(res.cookie, '/me')).status, 200);
+  assert.ok((await minutesIdle()) < 1);
+});
+
 test('a deactivated user cannot log in, and their open session stops working', { skip }, async () => {
   const res = await login('resident2@example.com', DEMO_PASSWORD);
   assert.equal((await getWith(res.cookie, '/me')).status, 200);

@@ -7,7 +7,7 @@
 
 CREATE TABLE request_ratings (
   request_id   BIGINT PRIMARY KEY REFERENCES maintenance_requests(id),
-  building_id  INT NOT NULL DEFAULT 1 REFERENCES buildings(id),                    -- NFR-26
+  building_id  INT NOT NULL DEFAULT 1 REFERENCES buildings(id),                    -- NFR-14
   rating       SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),                   -- 1 = very poor … 5 = excellent
   comment      TEXT CHECK (comment IS NULL OR char_length(comment) BETWEEN 1 AND 500),
   rated_by     BIGINT NOT NULL REFERENCES users(id),

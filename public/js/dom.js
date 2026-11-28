@@ -2,7 +2,7 @@
  * Small helpers for building the page safely.
  *
  * User data (names, titles, descriptions) is always inserted as text or as an
- * attribute value, never as HTML, so it cannot inject script (NFR-05).
+ * attribute value, never as HTML, so it cannot inject script.
  *
  *   el('a', { href: '/x', class: 'btn' }, 'Open')
  */

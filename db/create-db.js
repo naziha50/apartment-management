@@ -1,7 +1,7 @@
 'use strict';
 /**
  * Creates the database named in DATABASE_URL if it does not exist yet.
- * Works on every OS, so nobody needs the `createdb` command (NFR-27).
+ * Works on every OS, so nobody needs the `createdb` command.
  *
  *   npm run db:create
  */

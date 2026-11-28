@@ -341,6 +341,28 @@ test('dashboard: maintenance counts and recent activity are shown (FR-29, FR-30)
   assert.deepEqual(times, [...times].sort((a, b) => b - a)); // newest first
 });
 
+test('dashboard: overdue requests use the same rule as the Requests page (FR-29, BR-17, BR-25)', { skip }, async () => {
+  // A scheduled-task request created 5 days ago but due in 2 days is not overdue yet,
+  // even though 5 days is past the 72-hour target for Medium.
+  const { rows } = await db.query(
+    `INSERT INTO scheduled_tasks (title, description, category, interval_months, next_due_date, created_by)
+     VALUES ('Clean the water tank', 'Every 6 months', 'water_supply', 6, CURRENT_DATE + 2, $1) RETURNING id`,
+    [admin],
+  );
+  await db.query(
+    `INSERT INTO maintenance_requests
+       (title, description, category, location, status, priority, submitted_at, reviewed_at, scheduled_task_id, due_date)
+     VALUES ('Clean the water tank', 'Every 6 months', 'water_supply', 'common_area', 'under_review', 'medium',
+             now() - interval '5 days', now() - interval '5 days', $1, CURRENT_DATE + 2)`,
+    [rows[0].id],
+  );
+
+  const dash = (await call('GET', '/dashboard', admin)).body;
+  const overview = (await call('GET', '/maintenance/overview', admin)).body;
+  assert.equal(dash.maintenance.overdue, overview.overdue);
+  assert.equal(dash.maintenance.byStatus.under_review, overview.under_review);
+});
+
 test('dashboard: a new announcement shows in recent announcements and recent activity (FR-30)', { skip }, async () => {
   const before = (await call('GET', '/dashboard', admin)).body;
   assert.ok(Array.isArray(before.announcements)); // the announcements module is installed
