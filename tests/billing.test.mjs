@@ -341,6 +341,22 @@ test('dashboard: maintenance counts and recent activity are shown (FR-29, FR-30)
   assert.deepEqual(times, [...times].sort((a, b) => b - a)); // newest first
 });
 
+test('dashboard: a new announcement shows in recent announcements and recent activity (FR-30)', { skip }, async () => {
+  const before = (await call('GET', '/dashboard', admin)).body;
+  assert.ok(Array.isArray(before.announcements)); // the announcements module is installed
+
+  const published = await call('POST', '/announcements', admin, {
+    title: 'Water off on Friday', body: 'The water supply will be off from 10 am to 2 pm.', category: 'service',
+  });
+  assert.equal(published.status, 201);
+
+  const after = (await call('GET', '/dashboard', admin)).body;
+  assert.equal(after.announcements[0].title, 'Water off on Friday'); // newest first
+  assert.equal(after.announcements[0].category, 'service');
+  assert.ok(after.announcements.length <= 5);
+  assert.ok(after.recentActivity.some((a) => a.kind === 'announcement' && a.text.includes('Water off on Friday')));
+});
+
 test('dashboard: only the admin can open it (FR-02)', { skip }, async () => {
   assert.equal((await call('GET', '/dashboard', staff)).status, 403);
   assert.equal((await call('GET', '/dashboard', rahima)).status, 403);

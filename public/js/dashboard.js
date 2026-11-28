@@ -21,6 +21,9 @@ const STATUS_TEXT = {
   resolved: 'Resolved', closed: 'Closed', rejected: 'Rejected', cancelled: 'Cancelled',
 };
 
+// Announcement categories, as in the announcements module.
+const CATEGORY_TEXT = { service: 'Service', maintenance: 'Maintenance', meeting: 'Meeting', rules: 'Rules' };
+
 /** Taka amount like ৳12,500 */
 function taka(amount) {
   return '৳' + amount.toLocaleString('en-IN');
@@ -112,9 +115,25 @@ function showNumbers(data) {
     list.append(li);
   }
 
-  document.getElementById('announcements-note').textContent = data.announcementsAvailable
-    ? ''
-    : 'Announcements will appear once the announcements module is merged.';
+  // FR-30: recent announcements (null if the announcements module is not installed)
+  const announcementList = document.getElementById('announcement-list');
+  const announcementsNote = document.getElementById('announcements-note');
+  announcementList.replaceChildren();
+  announcementsNote.textContent = '';
+  if (data.announcements === null) {
+    announcementsNote.textContent = 'Announcements will appear once the announcements module is merged.';
+  } else if (data.announcements.length === 0) {
+    announcementsNote.textContent = 'No announcements yet.';
+  }
+  for (const a of data.announcements || []) {
+    const li = document.createElement('li');
+    li.textContent = `${CATEGORY_TEXT[a.category] || a.category}: ${a.title}`;
+    const time = document.createElement('time');
+    time.dateTime = a.at;
+    time.textContent = new Date(a.at).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' });
+    li.append(time);
+    announcementList.append(li);
+  }
 }
 
 // ---------- FR-30: search ----------

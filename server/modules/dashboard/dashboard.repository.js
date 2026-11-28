@@ -107,6 +107,17 @@ async function recentRequests(buildingId) {
   return rows;
 }
 
+// FR-30: the 10 newest announcements.
+async function recentAnnouncements(buildingId) {
+  const { rows } = await db.query(
+    `SELECT id, title, category, created_at AS at
+     FROM announcements WHERE building_id = $1
+     ORDER BY created_at DESC, id DESC LIMIT 10`,
+    [buildingId]
+  );
+  return rows;
+}
+
 // ---------- FR-30 search. `pattern` is already escaped, like %text% ----------
 
 async function searchResidents(buildingId, pattern) {
@@ -161,6 +172,6 @@ async function searchRequests(buildingId, pattern) {
 
 module.exports = {
   tableExists, getOccupancyCounts, getBillingTotals, getMaintenanceCounts,
-  recentBills, recentPayments, recentRequests,
+  recentBills, recentPayments, recentRequests, recentAnnouncements,
   searchResidents, searchUnits, searchBills, searchRequests,
 };
